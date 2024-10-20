@@ -1,10 +1,10 @@
-struct IteratedGMMTasks{TF}
+struct PartitionedGMMTasks{TF}
     rowcuts::Vector{Int}
     Gs::Vector{Vector{TF}}
     dGs::Vector{Matrix{TF}}
 end
 
-struct IteratedGMM{P,TF} <: AbstractEstimator{TF}
+struct IteratedGMM{P,TF} <: AbstractGMMEstimator{P,TF}
     iter::RefValue{Int}
     Q::RefValue{TF}
     θlast::Vector{TF}
@@ -14,7 +14,7 @@ struct IteratedGMM{P,TF} <: AbstractEstimator{TF}
     WG::Vector{TF}
     dG::Matrix{TF}
     W::Matrix{TF}
-    Wfac::Ref{Cholesky{TF,Matrix{TF}}}
+    Wfac::RefValue{Cholesky{TF,Matrix{TF}}}
     Wup::Matrix{TF} # Don't use UpperTriangular/LowerTriangular (answer differs)
     p::P
 end
@@ -28,7 +28,7 @@ function IteratedGMM(nparam::Integer, nmoment::Integer, nobs::Integer, ntasks::I
     WG = Vector{TF}(undef, nmoment)
     dG = Matrix{TF}(undef, nmoment, nparam)
     W = Matrix{TF}(undef, nmoment, nmoment)
-    Wfac = Ref{Cholesky{TF,Matrix{TF}}}()
+    Wfac = RefValue{Cholesky{TF,Matrix{TF}}}()
     Wup = similar(W)
     ntasks = min(ntasks, nobs)
     if ntasks > 1
@@ -36,7 +36,7 @@ function IteratedGMM(nparam::Integer, nmoment::Integer, nobs::Integer, ntasks::I
         rowcuts = Int[(1:step:1+step*(ntasks-1))..., nobs+1]
         Gs = [Vector{TF}(undef, nmoment) for _ in 1:ntasks]
         dGs = [Matrix{TF}(undef, nmoment, nparam) for _ in 1:ntasks]
-        p = IteratedGMMTasks(rowcuts, Gs, dGs)
+        p = PartitionedGMMTasks(rowcuts, Gs, dGs)
     else
         p = nothing
     end
@@ -45,6 +45,9 @@ end
 
 nparam(est::IteratedGMM) = size(est.dG, 2)
 nmoment(est::IteratedGMM) = length(est.G)
+
+# Fallback method where dg is expected to be a defined function
+_initdg(dg::Any, g, params, nmoment) = dg
 
 checksolvertype(T::Type) = throw(ArgumentError("solver of type $T is not supported"))
 checksolvertype(::Type{<:Hybrid}) = true
@@ -68,8 +71,8 @@ function _initsolver(::Type{<:Hybrid}, est::IteratedGMM, g, dg, preg, predg, θ0
 end
 
 function fit(::Type{<:IteratedGMM}, solvertype, vce::CovarianceEstimator,
-        g, params, nmoment::Integer, nobs::Integer;
-        dg=nothing, preg=nothing, predg=nothing,
+        g, dg, params, nmoment::Integer, nobs::Integer;
+        preg=nothing, predg=nothing,
         winitial=I, θtol::Real=1e-8, maxiter::Integer=10000,
         ntasks::Integer=_default_ntasks(nobs*nmoment),
         showtrace::Bool=false,
@@ -77,6 +80,7 @@ function fit(::Type{<:IteratedGMM}, solvertype, vce::CovarianceEstimator,
     checksolvertype(solvertype)
     params, θ0 = _parse_params(params)
     nparam = length(params)
+    dg = _initdg(dg, g, params, nmoment)
     est = IteratedGMM(nparam, nmoment, nobs, ntasks; TF=TF)
     # Must initialize W before initializing solver
     copyto!(est.W, winitial)
@@ -85,13 +89,13 @@ function fit(::Type{<:IteratedGMM}, solvertype, vce::CovarianceEstimator,
     solver = _initsolver(solvertype, est, g, dg, preg, predg, θ0; solverkwargs...)
     coef = copy(θ0)
     vcov = Matrix{TF}(undef, nparam, nparam)
-    m = NonlinearGMM(coef, vcov, g, dg, est, vce, solver, params)
+    m = NonlinearGMM(coef, vcov, g, dg, preg, predg, est, vce, solver, params)
     initonly || fit!(m; winitial=winitial, θtol=θtol, maxiter=maxiter, showtrace=showtrace)
     return m
 end
 
-function setG!(est::IteratedGMM{Nothing,TF}, g, θ) where TF
-    N = size(est.H,2)
+function setG!(est::AbstractGMMEstimator{Nothing,TF}, g, θ) where TF
+    N = size(est.H, 2)
     fill!(est.G, zero(TF))
     for r in 1:N
         h = g(θ, r)
@@ -101,7 +105,7 @@ function setG!(est::IteratedGMM{Nothing,TF}, g, θ) where TF
     est.G ./= N
 end
 
-function setG!(est::IteratedGMM{<:IteratedGMMTasks,TF}, g, θ) where TF
+function setG!(est::AbstractGMMEstimator{<:PartitionedGMMTasks,TF}, g, θ) where TF
     rowcuts = est.p.rowcuts
     ntasks = length(rowcuts) - 1
     @sync for i in 1:ntasks
@@ -122,7 +126,7 @@ function setG!(est::IteratedGMM{<:IteratedGMMTasks,TF}, g, θ) where TF
     est.G ./= rowcuts[end]-1
 end
 
-function setdG!(est::IteratedGMM{Nothing,TF}, dg, θ) where TF
+function setdG!(est::AbstractGMMEstimator{Nothing,TF}, dg, θ) where TF
     N = size(est.H,2)
     fill!(est.dG, zero(TF))
     for r in 1:N
@@ -131,7 +135,7 @@ function setdG!(est::IteratedGMM{Nothing,TF}, dg, θ) where TF
     est.dG ./= N
 end
 
-function setdG!(est::IteratedGMM{<:IteratedGMMTasks,TF}, dg, θ) where TF
+function setdG!(est::AbstractGMMEstimator{<:PartitionedGMMTasks,TF}, dg, θ) where TF
     rowcuts = est.p.rowcuts
     ntasks = length(rowcuts) - 1
     @sync for i in 1:ntasks
@@ -171,7 +175,7 @@ function (f::ObjValue{<:IteratedGMM})(θ)
     f.pre === nothing || f.pre(θ)
     setG!(est, f.g, θ)
     mul!(est.WG, est.W, est.G)
-    return est.G'est.WG
+    est.G'est.WG
 end
 
 function (j::ObjGradient{<:IteratedGMM})(V, θ)
@@ -187,7 +191,7 @@ function setvcov!(m::NonlinearGMM{<:IteratedGMM})
     nmoment, nparam = size(est.dG)
     if nmoment == nparam
         copyto!(m.est.W, m.vce.S)
-        inv!(cholesky!(m.est.W))
+        inv!(cholesky!(Hermitian(m.est.W)))
         mul!(m.vce.vcovcache1, m.est.W, m.est.dG)
         mul!(m.vcov, m.est.dG', m.vce.vcovcache1)
         inv!(cholesky!(Hermitian(m.vcov)))
@@ -206,27 +210,33 @@ end
 
 function iterate(m::NonlinearGMM{<:IteratedGMM,VCE,<:NonlinearSystem},
         state=1) where VCE
+    est = m.est
     if state > 1
-        copyto!(m.est.W, m.vce.S)
-        inv!(cholesky!(m.est.W))
+        copyto!(est.W, m.vce.S)
+        inv!(cholesky!(est.W))
         # Only use the decomposed "half" W
         # Factorization of W for the first iteration is done in _initsolver
-        W1 = m.est.Wfac[].factors
-        copyto!(W1, m.est.W)
-        m.est.Wfac[] = Wch = cholesky!(Hermitian(W1))
-        copyto!(m.est.Wup, Wch.UL)
+        W1 = est.Wfac[].factors
+        copyto!(W1, est.W)
+        est.Wfac[] = Wch = cholesky!(Hermitian(W1))
+        copyto!(est.Wup, Wch.UL)
+        # Manually run remaining parts of f and df for new initial values in solver
+        mul!(m.solver.fdf.F, est.Wup, est.G)
+        mul!(m.solver.fdf.DF, est.Wup, est.dG)
     end
-    copyto!(m.est.θlast, m.coef)
-    state == 1 ? solve!(m.solver) : solve!(m.solver, m.solver.x)
+    copyto!(est.θlast, m.coef)
+    state == 1 ? solve!(m.solver) : solve!(m.solver, m.solver.x; initf=false, initdf=false)
     copyto!(m.coef, m.solver.x)
     # Last evaluation may not be at coef if the trial is rejected
-    setG!(m.est, m.g, m.coef)
+    m.preg === nothing || m.preg(m.coef)
+    setG!(est, m.g, m.coef)
     # Solver does not update dG in every step
-    setdG!(m.est, m.dg, m.coef)
-    mul!(m.est.WG, m.est.W, m.est.G)
-    m.est.Q[] = m.est.G'm.est.WG
-    setS!(m.vce, m.est.H)
-    m.est.iter[] += 1
+    m.predg === nothing || m.predg(m.coef)
+    setdG!(est, m.dg, m.coef)
+    mul!(est.WG, est.W, est.G)
+    est.Q[] = est.G'est.WG
+    setS!(m.vce, est.H)
+    est.iter[] += 1
     return m, state+1
 end
 

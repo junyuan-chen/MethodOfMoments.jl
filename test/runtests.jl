@@ -1,9 +1,18 @@
 using Test
 using MethodOfMoments
 
+using AdvancedMH
 using CSV
 using DataFrames
+using Distributions
+using DistributionsAD
+using ForwardDiff
 using GroupedArrays
+using LinearAlgebra
+using LogDensityProblems: LogDensityOrder, capabilities, dimension, logdensity,
+    logdensity_and_gradient
+using MCMCChains
+using MethodOfMoments: acceptance_rate
 using NLopt
 using StaticArrays
 using TypedTables: Table
@@ -13,7 +22,8 @@ exampledata(name::Union{Symbol,String}) =
     DataFrame(CSV.read(MethodOfMoments.datafile(name), DataFrame), copycols=true)
 
 const tests = [
-    "iteratedgmm"
+    "iteratedgmm",
+    "bayesian"
 ]
 
 printstyled("Running tests:\n", color=:blue, bold=true)

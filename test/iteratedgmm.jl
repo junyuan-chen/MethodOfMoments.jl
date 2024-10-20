@@ -1,38 +1,38 @@
 @gdg function (g::g_stata_gmm_ex6)(θ, r)
-    d = g.data[r]
+    @inbounds d = g.data[r]
     x = SVector{5,Float64}((d.private, d.chronic, d.female, d.income, 1.0))
     return (d.docvis - exp(θ'x)) .* x
 end
 
 @gdg function (dg::dg_stata_gmm_ex6)(θ::Vector, r)
-    d = dg.data[r]
+    @inbounds d = dg.data[r]
     x = SVector{5,Float64}((d.private, d.chronic, d.female, d.income, 1.0))
     return x .* (- exp(θ'x) .* x')
 end
 
 @gdg function (g::g_stata_gmm_ex8)(θ, r)
-    d = g.data[r]
+    @inbounds d = g.data[r]
     x = SVector{5,Float64}((d.private, d.chronic, d.female, d.income, 1.0))
     z = SVector{7,Float64}((d.private, d.chronic, d.female, d.age, d.black, d.hispanic, 1.0))
     return (d.docvis - exp(θ'x)) .* z
 end
 
 @gdg function (dg::dg_stata_gmm_ex8)(θ, r)
-    d = dg.data[r]
+    @inbounds d = dg.data[r]
     x = SVector{5,Float64}((d.private, d.chronic, d.female, d.income, 1.0))
     z = SVector{7,Float64}((d.private, d.chronic, d.female, d.age, d.black, d.hispanic, 1.0))
     return z .* (- exp(θ'x) .* x')
 end
 
 @gdg function (g::g_stata_gmm_ex8_scaled)(θ, r)
-    d = g.data[r]
+    @inbounds d = g.data[r]
     x = SVector{5,Float64}((d.private, d.chronic, d.female, d.income, 1.0))
     z = SVector{7,Float64}((d.private, d.chronic, d.female, d.age, d.black, d.hispanic, 1.0))
     return (d.docvis - exp(θ'x)) .* z
 end
 
 @gdg function (dg::dg_stata_gmm_ex8_scaled)(θ, r)
-    d = dg.data[r]
+    @inbounds d = dg.data[r]
     x = SVector{5,Float64}((d.private, d.chronic, d.female, d.income, 1.0))
     z = SVector{7,Float64}((d.private, d.chronic, d.female, d.age, d.black, d.hispanic, 1.0))
     return z .* (- exp(θ'x) .* x') ./ 2000
@@ -48,7 +48,7 @@ end
 function (p::preg_stata_gmm_ex11)(θ)
     fill!(p.mubar, 0)
     fill!(p.ybar, 0)
-    for r in eachindex(p.data)
+    @inbounds for r in eachindex(p.data)
         d = p.data[r]
         x = SVector{3,Float64}((d.x1, d.x2, d.x3))
         g = Int(d.id)
@@ -68,7 +68,7 @@ struct g_stata_gmm_ex11{D}
 end
 
 function (g::g_stata_gmm_ex11)(θ, r)
-    d = g.data[r]
+    @inbounds d = g.data[r]
     i = Int(d.id)
     x = SVector{3,Float64}((d.x1, d.x2, d.x3))
     return (d.y - d.mu * g.ybar[i] / g.mubar[i]) .* x
@@ -83,7 +83,7 @@ end
 
 function (p::predg_stata_gmm_ex11)(θ)
     fill!(p.dmubar, 0)
-    for r in eachindex(p.data)
+    @inbounds for r in eachindex(p.data)
         d = p.data[r]
         x = SVector{3,Float64}((d.x1, d.x2, d.x3))
         g = Int(d.id)
@@ -103,7 +103,7 @@ struct dg_stata_gmm_ex11{D}
 end
 
 function (dg::dg_stata_gmm_ex11)(θ, r)
-    d = dg.data[r]
+    @inbounds d = dg.data[r]
     i = Int(d.id)
     x = SVector{3,Float64}((d.x1, d.x2, d.x3))
     dmu = SVector{3,Float64}((d.dmu1, d.dmu2, d.dmu3))
@@ -117,7 +117,7 @@ end
     g = g_stata_gmm_ex6(data)
     dg = dg_stata_gmm_ex6(data)
     vce = RobustVCE(5, 5, length(data))
-    r = fit(IteratedGMM, Hybrid, vce, g, params, 5, length(data), dg=dg, ntasks=1,
+    r = fit(IteratedGMM, Hybrid, vce, g, dg, params, 5, length(data), ntasks=1,
         solverkwargs=(showtrace=5,))
     # Compare results with Stata
     # gmm (docvis - exp({xb:private chronic female income _cons})),
@@ -144,7 +144,7 @@ end
     g = g_stata_gmm_ex8(data)
     dg = dg_stata_gmm_ex8(data)
     vce = RobustVCE(5, 7, length(data))
-    r = fit(IteratedGMM, Hybrid, vce, g, params, 7, length(data), dg=dg, ntasks=2)
+    r = fit(IteratedGMM, Hybrid, vce, g, dg, collect(params), 7, length(data), ntasks=2)
 
     # gmm (docvis - exp({xb:private chronic female income _cons})),
     # instruments(private chronic female age black hispanic) igmm winitial(identity)
@@ -170,17 +170,18 @@ end
     d = data
     Z = [d.private d.chronic d.female d.age d.black d.hispanic ones(length(d))]
     w1 = Z'Z ./ length(d)
-    r = fit(IteratedGMM, Hybrid, vce, g, params, 7, length(data), dg=dg, winitial=w1)
+    params = Dict(params.=> 0.0)
+    r = fit(IteratedGMM, Hybrid, vce, g, dg, params, 7, length(data), winitial=w1)
     @test coef(r) ≈ b atol=1e-6
     @test stderror(r) ≈ se atol=1e-6
 
     opt = NLopt.Opt(:LN_BOBYQA, length(params))
-    r = fit(IteratedGMM, opt, vce, g, params, 7, length(data), dg=dg)
+    r = fit(IteratedGMM, opt, vce, g, dg, params, 7, length(data))
     @test coef(r) ≈ b atol=1e-6
     @test stderror(r) ≈ se atol=1e-6
 
     opt = NLopt.Opt(:LN_NELDERMEAD, length(params))
-    r = fit(IteratedGMM, opt, vce, g, params, 7, length(data), dg=dg, winitial=w1)
+    r = fit(IteratedGMM, opt, vce, g, dg, params, 7, length(data), winitial=w1)
     @test coef(r) ≈ b atol=1e-6
     @test stderror(r) ≈ se atol=1e-6
 
@@ -188,7 +189,7 @@ end
     g = g_stata_gmm_ex8_scaled(data)
     dg = dg_stata_gmm_ex8_scaled(data)
     opt = NLopt.Opt(:LD_LBFGS, length(params))
-    r = fit(IteratedGMM, opt, vce, g, params, 7, length(data), dg=dg)
+    r = fit(IteratedGMM, opt, vce, g, dg, params, 7, length(data))
     @test coef(r) ≈ b atol=1e-1
     # @test stderror(r) ≈ se atol=1e-2
 
@@ -201,14 +202,14 @@ end
     ybar = zeros(45)
     Nid = sort!(combine(groupby(data, :id), nrow=>:Nid), :id).Nid
     data = Table(data)
-    params = (:x1, :x2, :x3)
+    params = (x1=0.0, x2=0.0, x3=0.0)
 
     pg = preg_stata_gmm_ex11(data, mubar, ybar, Nid)
     g = g_stata_gmm_ex11(data, mubar, ybar)
     pdg = predg_stata_gmm_ex11(data, dmubar, ybar, Nid)
     dg = dg_stata_gmm_ex11(data, mubar, dmubar, ybar)
     vce = ClusterVCE(data, :id, 3, 3)
-    r = fit(IteratedGMM, Hybrid, vce, g, params, 3, length(data), dg=dg, preg=pg, predg=pdg)
+    r = fit(IteratedGMM, Hybrid, vce, g, dg, params, 3, length(data), preg=pg, predg=pdg)
 
     #=
     program gmm_poi

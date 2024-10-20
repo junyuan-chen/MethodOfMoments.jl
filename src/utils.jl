@@ -23,7 +23,7 @@ end
 
 const VarName = Union{Symbol, Int}
 
-function _parse_params(ps::Union{AbstractVector{<:Pair}, Base.Pairs})
+function _parse_params(ps::Union{AbstractVector{<:Pair}, Dict, Base.Pairs})
     names = Vector{VarName}(undef, length(ps))
     initvals = Vector{Float64}(undef, length(ps))
     for (i, p) in enumerate(ps)
@@ -33,7 +33,7 @@ function _parse_params(ps::Union{AbstractVector{<:Pair}, Base.Pairs})
     return names, initvals
 end
 
-_parse_params(ps::Union{Dict,NamedTuple}) = _parse_params(pairs(ps))
+_parse_params(ps::NamedTuple) = _parse_params(pairs(ps))
 
 _parse_params(ps::AbstractVector{<:VarName}) =
     collect(VarName, ps), zeros(length(ps))
@@ -53,6 +53,47 @@ function _parse_params(ps::Tuple)
         end
     end
     return names, initvals
+end
+
+function _parse_bayes_params(ps::Union{AbstractVector{<:Pair}, Dict, Base.Pairs})
+    names = Vector{VarName}(undef, length(ps))
+    priors = Vector{Distribution}(undef, length(ps))
+    for (i, p) in enumerate(ps)
+        names[i] = p[1]
+        priors[i] = p[2]
+    end
+    return names, (priors...,)
+end
+
+_parse_bayes_params(ps::NamedTuple) = _parse_bayes_params(pairs(ps))
+
+function _parse_bayes_params(ps::Tuple)
+    names = Vector{VarName}(undef, length(ps))
+    priors = Vector{Distribution}(undef, length(ps))
+    for (i, p) in enumerate(ps)
+        if p isa Pair
+            names[i] = p[1]
+            priors[i] = p[2]
+        else
+            throw(ArgumentError("invalid specification of params"))
+        end
+    end
+    return names, (priors...,)
+end
+
+function acceptance_rate(sample::AbstractVector)
+    i1 = firstindex(sample)
+    iN = lastindex(sample)
+    count = 1
+    vlast = sample[i1]
+    @inbounds for i in i1+1:iN
+        v = sample[i]
+        if v != vlast
+            count += 1
+            vlast = v
+        end
+    end
+    return count/(iN-i1+1)
 end
 
 """

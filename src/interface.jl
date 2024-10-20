@@ -1,11 +1,13 @@
-abstract type AbstractEstimator{TF<:AbstractFloat} end
+abstract type AbstractGMMEstimator{P, TF<:AbstractFloat} end
 
-struct NonlinearGMM{TE<:AbstractEstimator, VCE<:CovarianceEstimator, SOL,
-        G, DG, TF<:AbstractFloat} <: StatisticalModel
+struct NonlinearGMM{TE<:AbstractGMMEstimator, VCE<:CovarianceEstimator, SOL,
+        G, DG, PG, PDG, TF<:AbstractFloat} <: StatisticalModel
     coef::Vector{TF}
     vcov::Matrix{TF}
     g::G
     dg::DG
+    preg::PG
+    predg::PDG
     est::TE
     vce::VCE
     solver::SOL
@@ -83,4 +85,4 @@ function show(io::IO, mime::MIME"text/plain", m::NonlinearGMM)
     show(io, coeftable(m))
 end
 
-show(io::IO, est::AbstractEstimator) = print(io, typeof(est).name.name)
+show(io::IO, est::AbstractGMMEstimator) = print(io, typeof(est).name.name)
