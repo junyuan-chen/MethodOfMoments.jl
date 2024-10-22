@@ -40,7 +40,7 @@ function IteratedGMM(nparam::Integer, nmoment::Integer, nobs::Integer, ntasks::I
     else
         p = nothing
     end
-    return IteratedGMM(Ref(0), Ref(Inf), θlast, Ref(Inf), H, G, WG, dG, W, Wfac, Wup, p)
+    return IteratedGMM(Ref(0), Ref(NaN), θlast, Ref(NaN), H, G, WG, dG, W, Wfac, Wup, p)
 end
 
 nparam(est::IteratedGMM) = size(est.dG, 2)
@@ -127,7 +127,7 @@ function setG!(est::AbstractGMMEstimator{<:PartitionedGMMTasks,TF}, g, θ) where
 end
 
 function setdG!(est::AbstractGMMEstimator{Nothing,TF}, dg, θ) where TF
-    N = size(est.H,2)
+    N = size(est.H, 2)
     fill!(est.dG, zero(TF))
     for r in 1:N
         est.dG .+= dg(θ, r)
@@ -190,22 +190,22 @@ function setvcov!(m::NonlinearGMM{<:IteratedGMM})
     est = m.est
     nmoment, nparam = size(est.dG)
     if nmoment == nparam
-        copyto!(m.est.W, m.vce.S)
-        inv!(cholesky!(Hermitian(m.est.W)))
-        mul!(m.vce.vcovcache1, m.est.W, m.est.dG)
-        mul!(m.vcov, m.est.dG', m.vce.vcovcache1)
-        inv!(cholesky!(Hermitian(m.vcov)))
+        copyto!(m.vce.vcovcache1, est.dG)
+        dGinv = inv!(lu!(m.vce.vcovcache1))
+        mul!(m.vce.vcovcache2, m.vce.S, dGinv')
+        mul!(m.vcov, dGinv, m.vce.vcovcache2)
     else
         # Preserve the W used for point estimate
-        WG = mul!(m.vce.vcovcache1, m.est.W, m.est.dG)
-        GWG = mul!(m.vcov, m.est.dG', WG)
+        WG = mul!(m.vce.vcovcache1, est.W, est.dG)
+        GWG = mul!(m.vcov, est.dG', WG)
         # Cannot directly use WG' as adjoint matrix is not allowed with ldiv!
         GW = copyto!(m.vce.vcovcache2, WG')
         GWGGW = ldiv!(cholesky!(Hermitian(GWG)), GW)
         mul!(m.vce.vcovcache1, m.vce.S, GWGGW')
         mul!(m.vcov, GWGGW, m.vce.vcovcache1)
     end
-    m.vcov ./= size(m.est.H,2)
+    # ! H is horizontal
+    m.vcov ./= size(est.H, 2)
 end
 
 function iterate(m::NonlinearGMM{<:IteratedGMM,VCE,<:NonlinearSystem},
@@ -240,7 +240,7 @@ function iterate(m::NonlinearGMM{<:IteratedGMM,VCE,<:NonlinearSystem},
     return m, state+1
 end
 
-@inline function test_θtol!(est::IteratedGMM, θ, tol)
+@inline function test_θtol!(est::AbstractGMMEstimator, θ, tol)
     diff = 0.0
     @inbounds for i in eachindex(θ)
         d = abs(θ[i] - est.θlast[i])
@@ -250,9 +250,9 @@ end
     return diff < tol
 end
 
-function _show_trace(io::IO, est::IteratedGMM, newline::Bool, twolines::Bool)
+function _show_trace(io::IO, est::AbstractGMMEstimator, newline::Bool, twolines::Bool)
     print(io, "  iter ", lpad(est.iter[], 3), "  =>  ")
-    mk = nmoment(est)-nparam(est)
+    mk = nmoment(est) - nparam(est)
     @printf(io, "Q(θ) = %11.5e  max|θ-θlast| = %11.5e", est.Q[], est.diff[])
     if mk > 0
         J = Jstat(est)
@@ -282,6 +282,7 @@ function fit!(m::NonlinearGMM{<:IteratedGMM};
     end
 end
 
+# H is horizontal
 Jstat(est::IteratedGMM) =
     nmoment(est) > nparam(est) ? size(est.H, 2) * est.Q[] : NaN
 

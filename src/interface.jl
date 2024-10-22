@@ -1,36 +1,24 @@
 abstract type AbstractGMMEstimator{P, TF<:AbstractFloat} end
 
-struct NonlinearGMM{TE<:AbstractGMMEstimator, VCE<:CovarianceEstimator, SOL,
-        G, DG, PG, PDG, TF<:AbstractFloat} <: StatisticalModel
-    coef::Vector{TF}
-    vcov::Matrix{TF}
-    g::G
-    dg::DG
-    preg::PG
-    predg::PDG
-    est::TE
-    vce::VCE
-    solver::SOL
-    params::Vector{VarName}
-end
+abstract type AbstractGMMResult{TF<:AbstractFloat} <: StatisticalModel end
 
-coef(m::NonlinearGMM) = m.coef
-coef(m::NonlinearGMM, n::VarName) = m.coef[findfirst(==(n), m.params)]
-coefnames(m::NonlinearGMM) = m.params
-vcov(m::NonlinearGMM) = m.vcov
-stderror(m::NonlinearGMM, n::VarName) =
+coef(m::AbstractGMMResult) = m.coef
+coef(m::AbstractGMMResult, n::VarName) = m.coef[findfirst(==(n), m.params)]
+coefnames(m::AbstractGMMResult) = m.params
+vcov(m::AbstractGMMResult) = m.vcov
+stderror(m::AbstractGMMResult, n::VarName) =
     (i = findfirst(==(n), m.params); sqrt(m.vcov[i,i]))
 
-function confint(m::NonlinearGMM; level::Real=0.95)
+function confint(m::AbstractGMMResult; level::Real=0.95)
     scale = norminvcdf(1-(1-level)/2)
     se = stderror(m)
     b = coef(m)
     return b .- scale .* se, b .+ scale .* se
 end
 
-nparam(m::NonlinearGMM) = length(coef(m))
-nmoment(m::NonlinearGMM) = nmoment(m.est)
-Jstat(m::NonlinearGMM) = Jstat(m.est)
+nparam(m::AbstractGMMResult) = length(coef(m))
+nmoment(m::AbstractGMMResult) = nmoment(m.est)
+Jstat(m::AbstractGMMResult) = Jstat(m.est)
 
 struct VectorObjValue{TE,G,P}
     est::TE
@@ -56,7 +44,7 @@ struct ObjGradient{TE,G,P}
     pre::P
 end
 
-function coeftable(m::NonlinearGMM; level::Real=0.95)
+function coeftable(m::AbstractGMMResult; level::Real=0.95)
     cf = coef(m)
     se = stderror(m)
     ts = cf ./ se
@@ -69,10 +57,10 @@ function coeftable(m::NonlinearGMM; level::Real=0.95)
         [string(cnames[i]) for i = 1:length(cf)], 4, 3)
 end
 
-show(io::IO, m::NonlinearGMM) =
+show(io::IO, m::AbstractGMMResult) =
     print(io, nmoment(m), '×', nparam(m), ' ', typeof(m).name.name)
 
-function show(io::IO, mime::MIME"text/plain", m::NonlinearGMM)
+function show(io::IO, mime::MIME"text/plain", m::AbstractGMMResult)
     nm = nmoment(m)
     np = nparam(m)
     print(io, typeof(m).name.name, " with ", nm, " moment")
@@ -86,3 +74,27 @@ function show(io::IO, mime::MIME"text/plain", m::NonlinearGMM)
 end
 
 show(io::IO, est::AbstractGMMEstimator) = print(io, typeof(est).name.name)
+
+struct NonlinearGMM{TE<:AbstractGMMEstimator, VCE<:CovarianceEstimator, SOL,
+        G, DG, PG, PDG, TF} <: AbstractGMMResult{TF}
+    coef::Vector{TF}
+    vcov::Matrix{TF}
+    g::G
+    dg::DG
+    preg::PG
+    predg::PDG
+    est::TE
+    vce::VCE
+    solver::SOL
+    params::Vector{VarName}
+end
+
+struct LinearGMM{TE<:AbstractGMMEstimator, VCE<:CovarianceEstimator,
+        TF} <: AbstractGMMResult{TF}
+    coef::Vector{TF}
+    vcov::Matrix{TF}
+    est::TE
+    vce::VCE
+    eqs::Vector{Tuple{VarName,Vector{VarName},Vector{VarName}}} # Y, X, Z for each equation
+    params::Vector{VarName}
+end

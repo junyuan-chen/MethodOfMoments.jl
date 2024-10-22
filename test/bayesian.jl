@@ -68,7 +68,7 @@
     vce = ClusterVCE(data, :id, 3, 3)
 
     θ = [2.0, -3.0, 1.0]
-    m = BayesianGMM(vce, g, nothing, Dict(params...), 3, length(data); preg=pg, ntasks=2)
+    m = BayesianGMM(vce, g, nothing, params, 3, length(data); preg=pg, ntasks=2)
     spl = MetropolisHastings(RandomWalkProposal{true}(MvNormal(zeros(3), I(3))))
     @time chain = sample(m, spl, N, init_params=θ,
         param_names=m.params, chain_type=Chains, progress=false)

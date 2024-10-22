@@ -4,7 +4,7 @@ using Base: RefValue
 using Combinatorics: combinations
 using Distributions: Distribution, logpdf
 using GroupedArrays: GroupedArray, GroupedVector
-using LinearAlgebra: I, mul!, ldiv!, inv!, Hermitian, Cholesky, cholesky!, cholesky
+using LinearAlgebra: I, mul!, ldiv!, inv!, Hermitian, Cholesky, cholesky!, cholesky, lu!
 using LogDensityProblems: LogDensityOrder
 using MacroTools
 using NonlinearSystems: NonlinearSystem, init, solve!, Hybrid, LeastSquares
@@ -31,15 +31,20 @@ export mode
 
 export @gdg,
 
-       NonlinearGMM,
+       AbstractGMMResult,
        nparam,
        nmoment,
        Jstat,
+       NonlinearGMM,
+       LinearGMM,
 
        RobustVCE,
        ClusterVCE,
 
        IteratedGMM,
+
+       IteratedLinearGMM,
+       JustIdentifiedLinearGMM,
 
        BayesianGMM,
        logprior,
@@ -51,6 +56,7 @@ include("utils.jl")
 include("interface.jl")
 include("vce.jl")
 include("iteratedgmm.jl")
+include("lineargmm.jl")
 include("bayesian.jl")
 
 end # module MethodOfMoments

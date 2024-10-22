@@ -121,7 +121,7 @@ end
         solverkwargs=(showtrace=5,))
     # Compare results with Stata
     # gmm (docvis - exp({xb:private chronic female income _cons})),
-    # instruments(private chronic female income) igmm
+    #    instruments(private chronic female income) igmm
     @test coef(r) ≈ [0.79866538, 1.0918651, 0.49254807, 0.00355701, -0.22972634] atol=1e-6
     @test vcov(r)[:,1] ≈ [0.01187862, -0.00049431, 0.00081862, -0.00003692, -0.00981242] atol=1e-7
     @test stderror(r) ≈ [0.1089891, 0.0559888, 0.0585298, 0.0010824, 0.1108607] atol=1e-6
@@ -131,10 +131,13 @@ end
     @test sprint(show, r.est) == "IteratedGMM"
 
     @test sprint(show, r) == "5×5 NonlinearGMM"
-    @test sprint(show, MIME("text/plain"), r)[1:789] == """
+    str = sprint(show, MIME("text/plain"), r)
+    # The Q almost 0 and varies across machines
+    Qstr = @sprintf("%11.5e", r.est.Q[])
+    @test str[1:789] == """
         NonlinearGMM with 5 moments and 5 parameters:
           Iterated GMM estimator:
-            iter   2  =>  Q(θ) = 4.27793e-32  max|θ-θlast| = 8.06983e-11
+            iter   2  =>  Q(θ) = $Qstr  max|θ-θlast| = 8.06983e-11
           Heteroskedasticity-robust covariance estimator
         ───────────────────────────────────────────────────────────────────────────
                     Estimate  Std. Error      z  Pr(>|z|)    Lower 95%    Upper 95%
@@ -147,19 +150,23 @@ end
     r = fit(IteratedGMM, Hybrid, vce, g, dg, collect(params), 7, length(data), ntasks=2)
 
     # gmm (docvis - exp({xb:private chronic female income _cons})),
-    # instruments(private chronic female age black hispanic) igmm winitial(identity)
+    #    instruments(private chronic female age black hispanic) igmm winitial(identity)
     b = [0.52261931, 1.0880932, 0.67021421, 0.01454361, -0.6036728]
     se = [0.1601102, 0.0622371, 0.0973558, 0.0027007, 0.1387295]
     @test coef(r) ≈ b atol=1e-6
     @test stderror(r) ≈ se atol=1e-6
+    # estat overid
+    @test Jstat(r) ≈ 8.89575 atol=1e-4
 
+    # Somehow the Linux runner gives a different iter but identical results
+    iter = Sys.islinux() ? 16 : 15
     @test sprint(show, MIME("text/plain"), r.est) == """
         Iterated GMM estimator:
-            iter  15  =>  Q(θ) = 2.01627e-03  max|θ-θlast| = 0.00000e+00  Jstat = 8.90  Pr(>J) = 0.0117"""
+            iter  $iter  =>  Q(θ) = 2.01627e-03  max|θ-θlast| = 0.00000e+00  Jstat = 8.90  Pr(>J) = 0.0117"""
     @test sprint(show, MIME("text/plain"), r)[1:821] == """
         NonlinearGMM with 7 moments and 5 parameters:
           Iterated GMM estimator:
-            iter  15  =>  Q(θ) = 2.01627e-03  max|θ-θlast| = 0.00000e+00
+            iter  $iter  =>  Q(θ) = 2.01627e-03  max|θ-θlast| = 0.00000e+00
                           Jstat = 8.90        Pr(>J) = 0.0117
           Heteroskedasticity-robust covariance estimator
         ────────────────────────────────────────────────────────────────────────
@@ -170,7 +177,7 @@ end
     d = data
     Z = [d.private d.chronic d.female d.age d.black d.hispanic ones(length(d))]
     w1 = Z'Z ./ length(d)
-    params = Dict(params.=> 0.0)
+    params = params.=> 0.0
     r = fit(IteratedGMM, Hybrid, vce, g, dg, params, 7, length(data), winitial=w1)
     @test coef(r) ≈ b atol=1e-6
     @test stderror(r) ≈ se atol=1e-6
@@ -223,7 +230,8 @@ end
         }
     end
     =#
-    # gmm gmm_poi, nequations(1) parameters(b1 b2 b3) instruments(x1 x2 x3, noconstant) vce(cluster id) igmm
+    # gmm gmm_poi, nequations(1) parameters(b1 b2 b3) instruments(x1 x2 x3, noconstant)
+    #    vce(cluster id) igmm
     @test coef(r) ≈ [1.9486602, -2.9661193, 1.0086338] atol=1e-6
     @test stderror(r) ≈ [0.1000265, 0.0923592, 0.1156561] atol=1e-6
 

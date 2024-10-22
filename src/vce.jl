@@ -37,7 +37,7 @@ function ClusterVCE(data, clusternames, nparam::Integer, nmoment::Integer;
         Sadj::Union{Real,Nothing}=nothing, TF::Type=Float64)
     Tables.istable(data) ||
         throw(ArgumentError("data must be a Tables.jl-compatible table"))
-    Nobs = length(Tables.rows(data))
+    nobs = length(Tables.rows(data))
     clusternames isa Symbol && (clusternames = (clusternames,))
     clusternames = VarName[clusternames...]
     nclu = length(clusternames)
@@ -53,7 +53,7 @@ function ClusterVCE(data, clusternames, nparam::Integer, nmoment::Integer;
     for (i, g) in enumerate(clusters)
         us[i] = Matrix{TF}(undef, g.ngroups, nmoment)
     end
-    Sadj === nothing && (Sadj = 1/Nobs)
+    Sadj === nothing && (Sadj = 1/nobs)
     ca1 = similar(S, nmoment, nparam)
     ca2 = similar(S, nparam, nmoment)
     return ClusterVCE(clusternames, clusters, G, us, S, convert(TF,Sadj), ca1, ca2)
@@ -69,11 +69,10 @@ function setS!(vce::ClusterVCE{TF}, res::AbstractMatrix) where TF
             u = vce.us[k]
             fill!(u, zero(TF))
             g = vce.clusters[k]
-            # Residual matrix is assumed to be horizontal
-            for i in axes(res,2)
-                c = g.groups[i]
+            for (i, ic) in pairs(g.groups)
+                # ! Residual matrix is horizontal
                 @inbounds for j in axes(res,1)
-                    u[c,j] += res[j,i]
+                    u[ic,j] += res[j,i]
                 end
             end
             mul!(vce.S, u', u, vce.Sadj * (-1)^(length(c) - 1), 1)

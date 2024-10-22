@@ -14,6 +14,7 @@ using LogDensityProblems: LogDensityOrder, capabilities, dimension, logdensity,
 using MCMCChains
 using MethodOfMoments: acceptance_rate
 using NLopt
+using Printf
 using StaticArrays
 using TypedTables: Table
 
@@ -23,6 +24,7 @@ exampledata(name::Union{Symbol,String}) =
 
 const tests = [
     "iteratedgmm",
+    "lineargmm",
     "bayesian"
 ]
 
