@@ -4,7 +4,7 @@ using Distributions
 params = (:private=&gt;Uniform(-1,2), :chronic=&gt;Uniform(-1,2),
     :female=&gt;Uniform(-1,2), :income=&gt;Uniform(-1,2), :cons=&gt;Normal())
 m = BayesianGMM(vce, g, dg, params, 7, length(data))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">BayesianGMM with 7 moments and 5 parameters:
-  private = 2.12200e-314  chronic = 2.12200e-314  female = 2.12200e-314  income = 2.12200e-314  cons = 7.02923e-313
+  private = 6.93681e-310  chronic = 6.93681e-310  female = 6.93682e-310  income = 6.93682e-310  cons = 2.04753e-312
   log(posterior) = NaN</code></pre><p>Above, we provide the names of each parameter and their prior distributions using distributions defined in <a href="https://github.com/JuliaStats/Distributions.jl">Distributions.jl</a>. A <code>BayesianGMM</code> contains the ingredients required for computing the log-posterior:</p><pre><code class="language-julia hljs">θ = [0.5, 1, 1, 0.1, 0.1]
 logposterior!(m, θ)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">-5.321068026621552</code></pre><p>To run a Metropolis-Hastings sampler, we may proceed as follows:</p><pre><code class="language-julia hljs">using AdvancedMH, MCMCChains, LinearAlgebra
 
@@ -22,20 +22,20 @@ Summary Statistics
  <span class="sgr1"> parameters      mean       std      mcse   ess_bulk   ess_tail      rhat   e ⋯
  <span class="sgr90">     Symbol   Float64   Float64   Float64    Float64    Float64   Float64     ⋯
 
-     private    0.3731    0.8508    0.0617   201.5974   418.4000    1.0087     ⋯
-     chronic    0.4831    0.8825    0.0605   234.6273   441.9540    1.0122     ⋯
-      female    0.5060    0.8523    0.0552   247.4934   459.8785    1.0134     ⋯
-      income    0.8888    0.9044    0.0884   130.8288   610.4353    1.0121     ⋯
-        cons   -0.0749    1.0274    0.0921   123.1140   216.8916    1.0048     ⋯
+     private    0.4839    0.8511    0.0570   222.3182   359.6197    1.0047     ⋯
+     chronic    0.4959    0.8681    0.0733   141.8767   194.4497    1.0432     ⋯
+      female    0.4541    0.8989    0.0640   192.7861   215.0143    1.0032     ⋯
+      income    0.7534    0.8814    0.0755   191.0194   568.6235    1.0081     ⋯
+        cons   -0.2139    0.9962    0.0853   136.7542   172.0678    1.0036     ⋯
 </span><span class="sgr36">                                                                1 column omitted
 
 Quantiles
   parameters      2.5%     25.0%     50.0%     75.0%     97.5%
  </span><span class="sgr90">     Symbol   Float64   Float64   Float64   Float64   Float64
 
-     private   -0.9544   -0.3461    0.3069    1.0406    1.9253
-     chronic   -0.9367   -0.3118    0.5244    1.2488    1.9550
-      female   -0.8987   -0.2034    0.4846    1.2567    1.9182
-      income   -0.4340   -0.0833    1.3567    1.7040    1.9677
-        cons   -2.0593   -0.7418   -0.0758    0.5981    1.9264
-</span></span></code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../lineargmm/">« Linear GMM</a><a class="docs-footer-nextpage" href="../../refs/">References »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.8.0 on <span class="colophon-date" title="Wednesday 13 November 2024 00:34">Wednesday 13 November 2024</span>. Using Julia version 1.11.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+     private   -0.9346   -0.2011    0.4868    1.1582    1.9346
+     chronic   -0.9285   -0.2429    0.4790    1.2088    1.9354
+      female   -0.9323   -0.3290    0.4322    1.2389    1.9454
+      income   -0.4168   -0.0917    1.1766    1.5939    1.9501
+        cons   -2.2057   -0.8596   -0.1553    0.4870    1.6259
+</span></span></code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../lineargmm/">« Linear GMM</a><a class="docs-footer-nextpage" href="../../refs/">References »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.8.0 on <span class="colophon-date" title="Wednesday 13 November 2024 07:00">Wednesday 13 November 2024</span>. Using Julia version 1.11.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
