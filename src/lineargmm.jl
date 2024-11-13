@@ -76,6 +76,25 @@ function _filldata!(Ys, Xs, Zs, ZX, ZY, eqs, data)
     ZY ./= nobs
 end
 
+"""
+    fit(::Type{<:IteratedLinearGMM}, vce::CovarianceEstimator, data, eqs; kwargs...)
+
+Conduct linear iterated GMM estimation with weight matrix in each iteration
+evaluated as the inverse of variance-covariance matrix estimated by `vce`.
+`data` is a `Tables.jl`-compatible data table.
+`eqs` specifies the names of the variables.
+This method is for the case where the parameters are over-identified.
+See documentation website for details.
+
+# Keywords
+- `nocons::Bool=false`: do not add constant terms automatically.
+- `winitial=:TSLS`: initial weight matrix; use the one for two-stage least squares by default.
+- `θtol::Real=1e-8`: tolerance level for determining the convergence of parameters.
+- `maxiter::Integer=10000`: maximum number of iterations allowed.
+- `showtrace::Bool=false`: print information as iteration proceeds.
+- `initonly::Bool=false`: initialize the returned object without conducting the estimation.
+- `TF::Type=Float64`: type of the numerical values.
+"""
 function fit(::Type{<:IteratedLinearGMM}, vce::CovarianceEstimator, data, eqs;
         nocons::Bool=false, winitial=:TSLS, θtol::Real=1e-8, maxiter::Integer=10000,
         showtrace::Bool=false, initonly::Bool=false, TF::Type=Float64)
@@ -214,6 +233,20 @@ const LinearGMMEstimator{TF} = Union{IteratedLinearGMM{TF}, JustIdentifiedLinear
 nparam(est::LinearGMMEstimator) = size(est.ZX, 2)
 nmoment(est::LinearGMMEstimator) = size(est.ZX, 1)
 
+"""
+    fit(::Type{<:JustIdentifiedLinearGMM}, vce::CovarianceEstimator, data, eqs; kwargs...)
+
+Conduct just-identified linear GMM estimation
+with variance-covariance matrix estimated by `vce`.
+`data` is a `Tables.jl`-compatible data table.
+`eqs` specifies the names of the variables.
+See documentation website for details.
+
+# Keywords
+- `nocons::Bool=false`: do not add constant terms automatically.
+- `initonly::Bool=false`: initialize the returned object without conducting the estimation.
+- `TF::Type=Float64`: type of the numerical values.
+"""
 function fit(::Type{<:JustIdentifiedLinearGMM}, vce::CovarianceEstimator, data, eqs;
         nocons::Bool=false, initonly::Bool=false, TF::Type=Float64)
     Tables.istable(data) ||

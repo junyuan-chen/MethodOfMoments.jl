@@ -16,9 +16,28 @@ function confint(m::AbstractGMMResult; level::Real=0.95)
     return b .- scale .* se, b .+ scale .* se
 end
 
+"""
+    nparam(m::AbstractGMMResult)
+
+Return the number of parameters.
+"""
 nparam(m::AbstractGMMResult) = length(coef(m))
+
+"""
+    nmoment(m::AbstractGMMResult)
+
+Return the number of moment conditions.
+"""
 nmoment(m::AbstractGMMResult) = nmoment(m.est)
+
+"""
+    Jstat(m::AbstractGMMResult)
+
+Return the Hansen's J statistic for over-identified GMM.
+`NaN` is returned if the parameters are just-identified.
+"""
 Jstat(m::AbstractGMMResult) = Jstat(m.est)
+Jstat(::AbstractGMMEstimator) = NaN
 
 struct VectorObjValue{TE,G,P}
     est::TE

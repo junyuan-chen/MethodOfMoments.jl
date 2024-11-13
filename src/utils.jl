@@ -1,15 +1,22 @@
+abstract type MomentConditionsOrDerivatives end
+
 macro gdg(args...)
     func = args[end]
     @capture(func, function (f_::s_)(xs__) body_ end) ||
         @capture(func, (f_::s_)(xs__) = body_) ||
         error("method definition is not recognized")
     return quote
-        struct $(esc(s)){D}
+        struct $(esc(s)){D} <: MomentConditionsOrDerivatives
             data::D
         end
         $(esc(func))
     end
 end
+
+show(io::IO, gdg::MomentConditionsOrDerivatives) = print(io, typeof(gdg).name.name)
+show(io::IO, ::MIME"text/plain", gdg::MomentConditionsOrDerivatives) =
+    print(io, typeof(gdg).name.name,
+        " (functor defined with @gdg for moment conditions)")
 
 function _default_ntasks(N::Integer)
     if N < 40_000

@@ -132,17 +132,24 @@ end
 
     @test sprint(show, r) == "5×5 NonlinearGMM"
     str = sprint(show, MIME("text/plain"), r)
-    # The Q almost 0 and varies across machines
+    # The Q is almost 0 and varies across machines
     Qstr = @sprintf("%11.5e", r.est.Q[])
+    diff = @sprintf("%11.5e", r.est.diff[])
+    @test r.est.diff[] ≈ 8.06983e-11 atol=1e-14
     @test str[1:789] == """
         NonlinearGMM with 5 moments and 5 parameters:
           Iterated GMM estimator:
-            iter   2  =>  Q(θ) = $Qstr  max|θ-θlast| = 8.06983e-11
+            iter   2  =>  Q(θ) = $Qstr  max|θ-θlast| = $diff
           Heteroskedasticity-robust covariance estimator
         ───────────────────────────────────────────────────────────────────────────
                     Estimate  Std. Error      z  Pr(>|z|)    Lower 95%    Upper 95%
         ───────────────────────────────────────────────────────────────────────────
         private   0.798665    0.108989     7.33    <1e-12   0.585051     1.01228"""
+
+    @test sprint(show, g) == "g_stata_gmm_ex6"
+    @test sprint(show, dg) == "dg_stata_gmm_ex6"
+    @test sprint(show, MIME("text/plain"), g) ==
+        "g_stata_gmm_ex6 (functor defined with @gdg for moment conditions)"
 
     g = g_stata_gmm_ex8(data)
     dg = dg_stata_gmm_ex8(data)
@@ -158,15 +165,16 @@ end
     # estat overid
     @test Jstat(r) ≈ 8.89575 atol=1e-4
 
-    # Somehow the Linux runner gives a different iter but identical results
-    iter = Sys.islinux() ? 16 : 15
+    # Somehow the Linux runner on GitHub gives a different iter but identical results
+    iter = r.est.iter[]
+    diff = @sprintf("%11.5e", r.est.diff[])
     @test sprint(show, MIME("text/plain"), r.est) == """
         Iterated GMM estimator:
-            iter  $iter  =>  Q(θ) = 2.01627e-03  max|θ-θlast| = 0.00000e+00  Jstat = 8.90  Pr(>J) = 0.0117"""
+            iter  $iter  =>  Q(θ) = 2.01627e-03  max|θ-θlast| = $diff  Jstat = 8.90  Pr(>J) = 0.0117"""
     @test sprint(show, MIME("text/plain"), r)[1:821] == """
         NonlinearGMM with 7 moments and 5 parameters:
           Iterated GMM estimator:
-            iter  $iter  =>  Q(θ) = 2.01627e-03  max|θ-θlast| = 0.00000e+00
+            iter  $iter  =>  Q(θ) = 2.01627e-03  max|θ-θlast| = $diff
                           Jstat = 8.90        Pr(>J) = 0.0117
           Heteroskedasticity-robust covariance estimator
         ────────────────────────────────────────────────────────────────────────

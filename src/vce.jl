@@ -5,6 +5,18 @@ struct RobustVCE{TF<:AbstractFloat} <: CovarianceEstimator
     vcovcache2::Matrix{TF}
 end
 
+"""
+    RobustVCE(nparam::Integer, nmoment::Integer, nobs::Integer; kwargs...)
+
+Constuct an object for specifications and cache
+for heteroskedasticity-robust variance-covariance estimator.
+The associated GMM problem involves `nparam` parameters, `nmoment` moment conditions
+and `nobs` sample observations.
+
+# Keywords
+- `adjustdofr::Integer=0`: finite-sample adjustment for the residual degree of freedom.
+- `TF::Type=Float64`: type of the numerical values.
+"""
 function RobustVCE(nparam::Integer, nmoment::Integer, nobs::Integer;
         adjustdofr::Integer=0, TF::Type=Float64)
     S = Matrix{TF}(undef, nmoment, nmoment)
@@ -33,6 +45,18 @@ struct ClusterVCE{TF<:AbstractFloat,TG} <: CovarianceEstimator
     vcovcache2::Matrix{TF}
 end
 
+"""
+    ClusterVCE(data, clusternames, nparam::Integer, nmoment::Integer; kwargs...)
+
+Constuct an object for specifications and cache
+for multiway cluster-robust variance-covariance estimator.
+The clusters are identified by `clusternames` from `data`.
+The associated GMM problem involves `nparam` parameters and `nmoment` moment conditions.
+
+# Keywords
+- `Sadj::Union{Real,Nothing}=nothing`: a factor for adjusting `S`.
+- `TF::Type=Float64`: type of the numerical values.
+"""
 function ClusterVCE(data, clusternames, nparam::Integer, nmoment::Integer;
         Sadj::Union{Real,Nothing}=nothing, TF::Type=Float64)
     Tables.istable(data) ||
