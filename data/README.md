@@ -13,5 +13,6 @@ that generates these files from original data.
 | auto | Stata Manual | [`auto.dta`](https://www.stata-press.com/data/r18/auto.dta) |  |
 | docvisits | Stata Manual | [`docvisits.dta`](https://www.stata-press.com/data/r18/docvisits.dta) |  |
 | hsng2 | Stata Manual | [`hsng2.dta`](https://www.stata-press.com/data/r18/hsng2.dta) |  |
+| klein | Stata Manual | [`klein.dta`](https://www.stata-press.com/data/r18/klein.dta) |  |
 | nlswork | Stata Manual | [`nlswork.dta`](https://www.stata-press.com/data/r18/nlswork.dta) |  |
 | poisson1 | Stata Manual | [`poisson1.dta`](https://www.stata-press.com/data/r18/poisson1.dta) |  |

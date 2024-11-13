@@ -62,12 +62,8 @@ function _initsolver(::Type{<:Hybrid}, est::IteratedGMM, g, dg, preg, predg, θ0
     f = VectorObjValue(est, g, preg)
     # Call preg once in case uninitiated values can create NaNs in jacobian
     preg === nothing || preg(θ0)
-    if dg === nothing
-        return init(Hybrid{LeastSquares}, f, θ0, nmoment; warn=warn, kwargs...)
-    else
-        j = VectorObjJacobian(est, dg, predg)
-        return init(Hybrid{LeastSquares}, f, j, θ0, nmoment; warn=warn, kwargs...)
-    end
+    j = VectorObjJacobian(est, dg, predg)
+    return init(Hybrid{LeastSquares}, f, j, θ0, nmoment; warn=warn, kwargs...)
 end
 
 """

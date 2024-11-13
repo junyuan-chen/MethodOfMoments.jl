@@ -14,7 +14,7 @@ When the number of moment conditions (length of ``\mathbf{g}_i(\theta)``)
 is greater than the number of parameters (length of ``\theta``),
 the parameters are **over-identified**.
 In this case, ``\mathbf{W}`` is a weight matrix
-affecting the relative importance of each moment conditions for the criterion.
+affecting the relative importance of each moment condition for the criterion function.
 When the number of moment conditions matches the number of parameters,
 the weight matrix is irrelevant and the parameters are **just-identified**.[^1]
 

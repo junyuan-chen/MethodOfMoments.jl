@@ -34,8 +34,8 @@ with no further iteration conducted upon the first evaluation.
 
 ## Example: Two-Stage Least Squares
 
-We replicate [Example 2](https://www.stata.com/manuals/rivregress.pdf)
-from Stata manual for `ivregress`:
+We replicate [Example 2](https://www.stata.com/manuals/rgmm.pdf)
+from Stata manual for `gmm`:
 
 ```@example lineargmm
 using MethodOfMoments, CSV, DataFrames
@@ -87,6 +87,28 @@ with a `Tuple` only containing two elements.
 The first element is still the name of the outcome variable.
 The second element contains the names of all the regressors,
 with the endogenous variable `tenure` being paired with a vector of IVs.
+
+## Example: System of Simultaneous Equations
+
+It is possible to specify a system of equations that are estimated jointly.
+We consider a modified [Example 16](https://www.stata.com/manuals/rgmm.pdf)
+from Stata manual for `gmm`,
+replacing the variance-covariance estimator with `RobustVCE`:[^1]
+
+[^1]: Identical estimates can be produced in Stata by changing the `wmatrix` option to `wmatrix(robust)`.
+
+```@example lineargmm
+data = exampledata(:klein)
+vce = RobustVCE(7, 8, nrow(data))
+eqs = [(:consump, (:wagepriv, :wagegovt), (:wagegovt, :govt, :capital1)),
+    (:wagepriv, (:consump, :govt, :capital1), (:wagegovt, :govt, :capital1))]
+r = fit(IteratedLinearGMM, vce, data, eqs, maxiter=2)
+```
+
+For multiple equations, we simply need to collect
+the specification for each equation in a vector.
+The name of each parameter is prepended by its corresponding outcome variable
+in order to distinguish the equation it belongs to.
 
 ## Example: Just-Identified IV Regression
 

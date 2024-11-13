@@ -3,7 +3,7 @@ using MethodOfMoments
 
 using AdvancedMH
 using CSV
-using DataFrames
+using DataFrames: DataFrame, combine, groupby, nrow, dropmissing!
 using Distributions
 using DistributionsAD
 using ForwardDiff
@@ -12,10 +12,12 @@ using LinearAlgebra
 using LogDensityProblems: LogDensityOrder, capabilities, dimension, logdensity,
     logdensity_and_gradient
 using MCMCChains
-using MethodOfMoments: acceptance_rate
+using MethodOfMoments: VarName, checksolvertype, acceptance_rate,
+    _default_ntasks, _parse_params, _parse_eqs, _parse_bayes_params, _parse_deriv
 using NLopt
 using Printf
 using StaticArrays
+using TransformVariables: as, transform
 using TypedTables: Table
 
 # Copying to avoid SentinelArrays that cause allocations with row iteration

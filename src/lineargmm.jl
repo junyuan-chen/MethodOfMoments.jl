@@ -50,6 +50,8 @@ end
 
 # Assume all equations have the same number of observations
 function _filldata!(Ys, Xs, Zs, ZX, ZY, eqs, data)
+    r0 = 0
+    k0 = 0
     for (i, eq) in enumerate(eqs)
         Y, X, Z = Ys[i], Xs[i], Zs[i]
         copyto!(Y, Tables.getcolumn(data, eq[1]))
@@ -68,8 +70,10 @@ function _filldata!(Ys, Xs, Zs, ZX, ZY, eqs, data)
             end
         end
         # ZX is already filled with 0
-        mul!(view(ZX, 1:length(eq[3]), 1:length(eq[2])), Z', X)
-        mul!(view(ZY, 1:length(eq[3])), Z', Y)
+        mul!(view(ZX, r0+1:r0+length(eq[3]), k0+1:k0+length(eq[2])), Z', X)
+        mul!(view(ZY, r0+1:r0+length(eq[3])), Z', Y)
+        r0 += length(eq[3])
+        k0 += length(eq[2])
     end
     nobs = length(Ys[1])
     ZX ./= nobs
@@ -147,8 +151,8 @@ function setH!(H, resids, Ys, Xs, Zs, coef, eqs)
     for (i, eq) in enumerate(eqs)
         copyto!(resids[i], Ys[i])
         mul!(resids[i], Xs[i], view(coef, k0+1:k0+length(eq[2])), -1.0, 1.0)
-        H = view(H, :, r0+1:r0+length(eq[3]))
-        H .= Zs[i] .* resids[i]
+        Hi = view(H, :, r0+1:r0+length(eq[3]))
+        Hi .= Zs[i] .* resids[i]
         r0 += length(eq[3])
         k0 += length(eq[2])
     end

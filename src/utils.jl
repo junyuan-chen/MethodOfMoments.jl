@@ -3,7 +3,6 @@ abstract type MomentConditionsOrDerivatives end
 macro gdg(args...)
     func = args[end]
     @capture(func, function (f_::s_)(xs__) body_ end) ||
-        @capture(func, (f_::s_)(xs__) = body_) ||
         error("method definition is not recognized")
     return quote
         struct $(esc(s)){D} <: MomentConditionsOrDerivatives
@@ -62,6 +61,58 @@ function _parse_params(ps::Tuple)
     return names, initvals
 end
 
+function _parse_eqi(eq::Tuple, nocons::Bool)
+    if length(eq) == 3 # Manual specification of Z
+        out = (eq[1], collect(VarName, eq[2]), collect(VarName, eq[3]))
+    elseif length(eq) == 2
+        xs = VarName[]
+        zs = VarName[]
+        for v in eq[2]
+            if v isa Pair
+                v[1] isa VarName ? push!(xs, v[1]) : append!(xs, v[1])
+                v[2] isa VarName ? push!(zs, v[2]) : append!(zs, v[2])
+            elseif v isa VarName
+                push!(xs, v)
+                push!(zs, v)
+            else
+                throw(ArgumentError("invalid specification of eqs"))
+            end
+        end
+        out = (eq[1], xs, zs)
+    else
+        throw(ArgumentError("invalid specification of eqs"))
+    end
+    if !nocons
+        :cons in out[2] || push!(out[2], :cons)
+        :cons in out[3] || push!(out[3], :cons)
+    end
+    return out
+end
+
+# Only one equation entered without a vector
+function _parse_eqs(eq::Tuple, nocons::Bool)
+    out = Vector{Tuple{VarName,Vector{VarName},Vector{VarName}}}(undef, 1)
+    out[1] = _parse_eqi(eq, nocons)
+    return out, copy(out[1][2])
+end
+
+function _parse_eqs(eqs::AbstractVector, nocons::Bool)
+    out = Vector{Tuple{VarName,Vector{VarName},Vector{VarName}}}(undef, length(eqs))
+    length(eqs) > 1 && (params = VarName[])
+    for (i, eq) in enumerate(eqs)
+        out[i] = _parse_eqi(eq, nocons)
+        y = out[i][1]
+        if length(eqs) > 1
+            for n in out[i][2]
+                push!(params, Symbol(y, "_", n))
+            end
+        else
+            params = copy(out[1][2])
+        end
+    end
+    return out, params
+end
+
 function _parse_bayes_params(ps::Union{AbstractVector{<:Pair}, Base.Pairs})
     names = Vector{VarName}(undef, length(ps))
     priors = Vector{Distribution}(undef, length(ps))
@@ -101,58 +152,6 @@ function acceptance_rate(sample::AbstractVector)
         end
     end
     return count/(iN-i1+1)
-end
-
-function _parse_eqi(eq, nocons::Bool)
-    if length(eq) == 3 # Manual specification of Z
-        out = (eq[1], collect(VarName, eq[2]), collect(VarName, eq[3]))
-    elseif length(eq) == 2
-        xs = VarName[]
-        zs = VarName[]
-        for v in eq[2]
-            if v isa Pair
-                v[1] isa VarName ? push!(xs, v[1]) : append!(xs, v[1])
-                v[2] isa VarName ? push!(zs, v[2]) : append!(zs, v[2])
-            elseif v isa VarName
-                push!(xs, v)
-                push!(zs, v)
-            else
-                throw(ArgumentError("invalid specification of eqs"))
-            end
-        end
-        out = (eq[1], xs, zs)
-    else
-        throw(ArgumentError("invalid specification of eqs"))
-    end
-    if !nocons
-        :cons in out[2] || push!(out[2], :cons)
-        :cons in out[3] || push!(out[3], :cons)
-    end
-    return out
-end
-
-# Only one equation entered without a vector
-function _parse_eqs(eq, nocons::Bool)
-    out = Vector{Tuple{VarName,Vector{VarName},Vector{VarName}}}(undef, 1)
-    out[1] = _parse_eqi(eq, nocons)
-    return out, copy(out[1][2])
-end
-
-function _parse_eqs(eqs::AbstractVector, nocons::Bool)
-    out = Vector{Tuple{VarName,Vector{VarName},Vector{VarName}}}(undef, length(eqs))
-    length(eqs) > 1 && (params = VarName[])
-    for (i, eq) in enumerate(eqs)
-        out[i] = _parse_eqi(eq, nocons)
-        y = out[i][1]
-        if length(eqs) > 1
-            for n in out[i][2]
-                push!(params, Symbol(y, "_", n))
-            end
-        else
-            params = copy(out[1][2])
-        end
-    end
-    return out, params
 end
 
 """

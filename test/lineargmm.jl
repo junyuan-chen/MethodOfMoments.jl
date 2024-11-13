@@ -48,6 +48,45 @@
         -0.00859937, 0.07157395, 0.85750707] atol=1e-6
     @test stderror(r) ≈ [0.0037764, 0.0066895, 0.000111,
         0.0021932, 0.0029938, 0.1616274] atol=1e-6
+
+    # 2-way clustered
+    # ivreghdfe ln_wage age age2 birth_yr grade (tenure = union wks_work msp),
+    #    cluster(idcode age)
+    vce = ClusterVCE(data, [:idcode, :age], 6, 8)
+    r1 = fit(IteratedLinearGMM, vce, data, eq, maxiter=1)
+    @test stderror(r1) ≈ [0.0060912, 0.0089036, 0.0001489,
+        0.002632, 0.0030163, 0.1985214] atol=1e-5
+
+    # Use other initial W
+    r = fit(IteratedLinearGMM, vce, data, eq, winitial=0.5.*I(8), maxiter=1)
+    # The first iteration is handled differently
+    @test r.est.Winv == 0.5*I(8)
+    eq = (:ln_wage, (:tenure, :age))
+    @test_throws ArgumentError fit(IteratedLinearGMM, vce, data, eq)
+    eq = (:ln_wage, (:tenure, :age), (:union,))
+    @test_throws ArgumentError fit(IteratedLinearGMM, vce, data, eq)
+
+    data = exampledata(:klein)
+    vce = RobustVCE(7, 8, nrow(data))
+    eqs = [(:consump, (:wagepriv, :wagegovt), (:wagegovt, :govt, :capital1)),
+        (:wagepriv, (:consump, :govt, :capital1), (:wagegovt, :govt, :capital1))]
+    r = fit(IteratedLinearGMM, vce, data, eqs, maxiter=2)
+    # Stata GMM Example 16 with modified options
+    # gmm (eq1: consump - {xb: wagepriv wagegovt _cons})
+    #    (eq2: wagepriv - {xc: consump govt capital1 _cons}),
+    #    instruments(eq1: wagegovt govt capital1) instruments(eq2: wagegovt govt capital1)
+    #    winitial(unadjusted, independent) wmatrix(robust) twostep
+    @test coef(r) ≈ [0.77848131, 0.97476159, 20.501343,
+        0.42794166, 1.1140361, -0.02555317, 12.843533] atol=1e-5
+    @test vcov(r)[end,1:end-1] ≈ [0.19679687, -0.09705715, -7.8984323,
+        -1.1456225, 2.7948784, -0.43874617] atol=1e-5
+    @test stderror(r) ≈ [0.0660542, 0.2384503, 2.055529,
+        0.1982664, 0.3883616, 0.0547334, 11.67894] atol=1e-5
+    @test coefnames(r) == [:consump_wagepriv, :consump_wagegovt, :consump_cons,
+        :wagepriv_consump, :wagepriv_govt, :wagepriv_capital1, :wagepriv_cons]
+
+    @test_throws ArgumentError _parse_eqs((:a, 1.0), false)
+    @test_throws ArgumentError _parse_eqs((:a,), false)
 end
 
 @testset "JustIdentifiedLinearGMM" begin
@@ -73,4 +112,5 @@ end
     # gmm (mpg - {b1}*weight - {b2}*length - {b0}), instruments(weight trunk) onestep
     @test coef(r) ≈ [-0.00298026, -0.11173826, 51.295324] atol=1e-6
     @test stderror(r) ≈ [0.0045492, 0.1567287, 15.7791] atol=1e-4
+    @test isnan(Jstat(r))
 end

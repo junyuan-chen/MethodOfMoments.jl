@@ -38,6 +38,11 @@
     @test dl1 ≈ [-1.762191542650967, -1.0913702611945668, -0.980917818008333,
         -344.2501598611761, -2.100024393614612] atol=1e-4
     @test dl1 !== m.dl
+
+    gr = zeros(length(θ))
+    @test m1(θ, gr) ≈ l1
+    @test gr ≈ dl1
+
     spl = MetropolisHastings(RandomWalkProposal{true}(MvNormal(zeros(5), 0.5*I(5))))
     Ndrop = 3000
     N = 6000
@@ -49,6 +54,8 @@
     opt = NLopt.Opt(:LN_BOBYQA, length(params))
     r = mode(m1, opt, θ)
     @test r[3][1] > -5.3161
+    r = mode(m1, opt, θ; verbose=true)
+    r = mode(m1, opt, θ; verbose=2, maxeval=5)
 
     data = exampledata(:poisson1)
     for v in (:mu, :dmu1, :dmu2, :dmu3)
@@ -72,4 +79,22 @@
     spl = MetropolisHastings(RandomWalkProposal{true}(MvNormal(zeros(3), I(3))))
     @time chain = sample(m, spl, N, init_params=θ,
         param_names=m.params, chain_type=Chains, progress=false)
+
+    @test _parse_bayes_params((a=Normal(),)) == (VarName[:a], (Normal(),))
+    @test_throws ArgumentError _parse_bayes_params((:a,))
+
+    tr = as(SVector{3}, as(Real,-3,3))
+    m1 = transform(tr, m)
+    @test parent(m1) === m
+    @test m1[] === coef(m)
+    @test m1[1] == coef(m)[1]
+    θ1 = [-6, 2, 6]
+    @test logprior(m1, θ1) == logprior(m, transform(tr, θ1))
+    @test logposterior!(m1, θ1) == m1(θ1) == logposterior!(m, transform(tr, θ1))
+
+    tr = as((x1=as(Real,0,2), x2=as(Real,-3,2), x3=as(Real,-3,3)))
+    m2 = transform(tr, m)
+    @test logposterior!(m2, θ1) == logposterior!(m, transform(tr, θ1))
+
+    @test _parse_deriv(:test) == Val(:test)
 end

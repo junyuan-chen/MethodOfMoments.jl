@@ -9,7 +9,7 @@
 using CSV, CodecZlib, DataFrames, ReadStatTables
 
 function stata_examples()
-    fnames = ["auto", "docvisits", "hsng2", "nlswork", "poisson1"]
+    fnames = ["auto", "docvisits", "hsng2", "klein", "nlswork", "poisson1"]
     for f in fnames
         df = DataFrame(readstat("data/$f.dta"))
         open(GzipCompressorStream, "data/$f.csv.gz", "w") do stream

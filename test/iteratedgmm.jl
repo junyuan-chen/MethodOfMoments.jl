@@ -123,10 +123,14 @@ end
     # gmm (docvis - exp({xb:private chronic female income _cons})),
     #    instruments(private chronic female income) igmm
     @test coef(r) ≈ [0.79866538, 1.0918651, 0.49254807, 0.00355701, -0.22972634] atol=1e-6
+    @test coef(r, :chronic) == r.coef[2]
     @test vcov(r)[:,1] ≈ [0.01187862, -0.00049431, 0.00081862, -0.00003692, -0.00981242] atol=1e-7
     @test stderror(r) ≈ [0.1089891, 0.0559888, 0.0585298, 0.0010824, 0.1108607] atol=1e-6
+    @test stderror(r, :chronic) ≈ stderror(r)[2]
     @test coefnames(r) == collect(params)
     @test isnan(Jstat(r))
+
+    @test_throws ArgumentError checksolvertype(Real)
 
     @test sprint(show, r.est) == "IteratedGMM"
 
@@ -256,4 +260,8 @@ end
     @test sprint(show, MIME("text/plain"), vce) == """
         1-way cluster-robust covariance estimator:
           id"""
+
+    @test _default_ntasks(100_000) == Threads.nthreads() ÷ 2
+    @test _default_ntasks(1_000_000) == Threads.nthreads()
+    @test_throws ArgumentError _parse_params((0.0,))
 end
