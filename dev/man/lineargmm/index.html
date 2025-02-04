@@ -8,10 +8,10 @@ exampledata(name::Union{Symbol,String}) =
 data = exampledata(:hsng2)
 vce = RobustVCE(3, 6, size(data,1))
 eq = (:rent, (:hsngval, :pcturban), (:pcturban, :faminc, Symbol.(:reg, 2:4)...))
-r = fit(IteratedLinearGMM, vce, data, eq, maxiter=1)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LinearGMM with 6 moments and 3 parameters:
+r = fit(IteratedLinearGMM, vce, data, eq, maxiter=1)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LinearGMM with 6 moments and 3 parameters over 50 observations:
   Iterated Linear GMM estimator:
     iter   1  =&gt;  Q(θ) = 1.10916e+02  max|θ-θlast| = 1.20707e+02
-                  Jstat = 5545.79        Pr(&gt;J) = &lt;1e-99
+                  Jstat = NaN        Pr(&gt;J) = NaN
   Heteroskedasticity-robust covariance estimator
 ────────────────────────────────────────────────────────────────────────────────
               Estimate    Std. Error     z  Pr(&gt;|z|)     Lower 95%     Upper 95%
@@ -24,7 +24,7 @@ data[!,:age2] = data.age.^2
 dropmissing!(data, [:ln_wage, :age, :birth_yr, :grade, :tenure, :union, :wks_work, :msp])
 vce = ClusterVCE(data, :idcode, 6, 8)
 eq = (:ln_wage, (:tenure=&gt;[:union, :wks_work, :msp], :age, :age2, :birth_yr, :grade))
-r = fit(IteratedLinearGMM, vce, data, eq, maxiter=2)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LinearGMM with 8 moments and 6 parameters:
+r = fit(IteratedLinearGMM, vce, data, eq, maxiter=2)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LinearGMM with 8 moments and 6 parameters over 18625 observations:
   Iterated Linear GMM estimator:
     iter   2  =&gt;  Q(θ) = 6.38275e-04  max|θ-θlast| = 5.04467e-02
                   Jstat = 11.89        Pr(&gt;J) = 0.0026
@@ -42,7 +42,7 @@ cons       0.857507     0.161627      5.31    &lt;1e-06   0.540723      1.17429
 vce = RobustVCE(7, 8, nrow(data))
 eqs = [(:consump, (:wagepriv, :wagegovt), (:wagegovt, :govt, :capital1)),
     (:wagepriv, (:consump, :govt, :capital1), (:wagegovt, :govt, :capital1))]
-r = fit(IteratedLinearGMM, vce, data, eqs, maxiter=2)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LinearGMM with 8 moments and 7 parameters:
+r = fit(IteratedLinearGMM, vce, data, eqs, maxiter=2)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LinearGMM with 8 moments and 7 parameters over 22 observations:
   Iterated Linear GMM estimator:
     iter   2  =&gt;  Q(θ) = 5.60704e-02  max|θ-θlast| = 4.39993e+00
                   Jstat = 1.23        Pr(&gt;J) = 0.2667
@@ -60,7 +60,7 @@ wagepriv_cons      12.8435     11.6789      1.10    0.2715  -10.0468     35.7338
 ───────────────────────────────────────────────────────────────────────────────────</code></pre><p>For multiple equations, we simply need to collect the specification for each equation in a vector. The name of each parameter is prepended by its corresponding outcome variable in order to distinguish the equation it belongs to.</p><h2 id="Example:-Just-Identified-IV-Regression"><a class="docs-heading-anchor" href="#Example:-Just-Identified-IV-Regression">Example: Just-Identified IV Regression</a><a id="Example:-Just-Identified-IV-Regression-1"></a><a class="docs-heading-anchor-permalink" href="#Example:-Just-Identified-IV-Regression" title="Permalink"></a></h2><p>Lastly, we illustrate the use of the specialized estimator <code>JustIdentifiedLinearGMM</code> for the just-identified linear GMM using the <code>auto</code> dataset from Stata:</p><pre><code class="language-julia hljs">data = exampledata(:auto)
 vce = RobustVCE(3, 3, size(data,1))
 eq = (:mpg, [:weight, :length=&gt;:trunk])
-r = fit(JustIdentifiedLinearGMM, vce, data, eq)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LinearGMM with 3 moments and 3 parameters:
+r = fit(JustIdentifiedLinearGMM, vce, data, eq)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LinearGMM with 3 moments and 3 parameters over 74 observations:
   Just-identified linear GMM estimator
   Heteroskedasticity-robust covariance estimator
 ──────────────────────────────────────────────────────────────────────────
@@ -69,4 +69,4 @@ r = fit(JustIdentifiedLinearGMM, vce, data, eq)</code></pre><pre class="document
 weight  -0.00298026   0.00454921  -0.66    0.5124  -0.0118966   0.00593603
 length  -0.111738     0.156728    -0.71    0.4759  -0.41892     0.195444
 cons    51.2953      15.7791       3.25    0.0012  20.3689     82.2217
-──────────────────────────────────────────────────────────────────────────</code></pre><div class="admonition is-info"><header class="admonition-header">Note</header><div class="admonition-body"><p>The familiar OLS regression is estimated if we omit the IV in this example.</p></div></div><section class="footnotes is-size-7"><ul><li class="footnote" id="footnote-1"><a class="tag is-link" href="#citeref-1">1</a>Identical estimates can be produced in Stata by changing the <code>wmatrix</code> option to <code>wmatrix(robust)</code>.</li></ul></section></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../nonlineargmm/">« Generalized Method of Moments</a><a class="docs-footer-nextpage" href="../bayesian/">Bayesian Quasi-Likelihood »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.8.0 on <span class="colophon-date" title="Wednesday 13 November 2024 07:44">Wednesday 13 November 2024</span>. Using Julia version 1.11.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+──────────────────────────────────────────────────────────────────────────</code></pre><div class="admonition is-info"><header class="admonition-header">Note</header><div class="admonition-body"><p>The familiar OLS regression is estimated if we omit the IV in this example.</p></div></div><section class="footnotes is-size-7"><ul><li class="footnote" id="footnote-1"><a class="tag is-link" href="#citeref-1">1</a>Identical estimates can be produced in Stata by changing the <code>wmatrix</code> option to <code>wmatrix(robust)</code>.</li></ul></section></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../nonlineargmm/">« Generalized Method of Moments</a><a class="docs-footer-nextpage" href="../bayesian/">Bayesian Quasi-Likelihood »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.8.0 on <span class="colophon-date" title="Tuesday 4 February 2025 12:54">Tuesday 4 February 2025</span>. Using Julia version 1.11.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
