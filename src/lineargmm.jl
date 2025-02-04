@@ -141,8 +141,7 @@ function setvcov!(m::LinearGMM{<:IteratedLinearGMM}, state)
     GWGGW = ldiv!(cholesky!(Hermitian(GWG)), GW)
     mul!(m.vce.vcovcache1, m.vce.S, GWGGW')
     mul!(m.vcov, GWGGW, m.vce.vcovcache1)
-    # ! H is vertical
-    m.vcov ./= size(est.H, 1)
+    m.vcov ./= nobs(m)
 end
 
 function setH!(H, resids, Ys, Xs, Zs, coef, eqs)
@@ -183,7 +182,8 @@ end
 
 function fit!(m::LinearGMM{<:IteratedLinearGMM};
         θtol::Real=1e-8, maxiter::Integer=10000, showtrace::Bool=false, kwargs...)
-    iter = 0
+    # Need iter outside loop for setvcov!
+    iter = m.est.iter[]
     while iter < maxiter
         iter += 1
         iterate(m, iter)
@@ -196,11 +196,11 @@ function fit!(m::LinearGMM{<:IteratedLinearGMM};
     catch
         @warn "variance-covariance matrix is not computed"
     end
+    return m
 end
 
-# ! H is vertical
 Jstat(est::IteratedLinearGMM) =
-    nmoment(est) > nparam(est) ? size(est.H, 1) * est.Q[] : NaN
+    nmoment(est) > nparam(est) && est.iter[] > 1 ? nobs(est) * est.Q[] : NaN
 
 show(io::IO, ::MIME"text/plain", est::IteratedLinearGMM; twolines::Bool=false) =
     (println(io, "Iterated Linear GMM estimator:"); print(io, "  ");
@@ -234,6 +234,8 @@ end
 
 const LinearGMMEstimator{TF} = Union{IteratedLinearGMM{TF}, JustIdentifiedLinearGMM{TF}}
 
+# ! H is vertical
+nobs(est::LinearGMMEstimator) = size(est.H, 1)
 nparam(est::LinearGMMEstimator) = size(est.ZX, 2)
 nmoment(est::LinearGMMEstimator) = size(est.ZX, 1)
 
@@ -287,6 +289,7 @@ function fit!(m::LinearGMM{<:JustIdentifiedLinearGMM})
     catch
         @warn "variance-covariance matrix is not computed"
     end
+    return m
 end
 
 show(io::IO, ::MIME"text/plain", est::JustIdentifiedLinearGMM; kwargs...) =

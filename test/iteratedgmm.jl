@@ -129,6 +129,7 @@ end
     @test stderror(r, :chronic) ≈ stderror(r)[2]
     @test coefnames(r) == collect(params)
     @test isnan(Jstat(r))
+    @test nobs(r) == length(data)
 
     @test_throws ArgumentError checksolvertype(Real)
 
@@ -140,8 +141,8 @@ end
     Qstr = @sprintf("%11.5e", r.est.Q[])
     diff = @sprintf("%11.5e", r.est.diff[])
     @test r.est.diff[] ≈ 8.06983e-11 atol=1e-14
-    @test str[1:789] == """
-        NonlinearGMM with 5 moments and 5 parameters:
+    @test str[1:812] == """
+        NonlinearGMM with 5 moments and 5 parameters over 4412 observations:
           Iterated GMM estimator:
             iter   2  =>  Q(θ) = $Qstr  max|θ-θlast| = $diff
           Heteroskedasticity-robust covariance estimator
@@ -175,8 +176,8 @@ end
     @test sprint(show, MIME("text/plain"), r.est) == """
         Iterated GMM estimator:
             iter  $iter  =>  Q(θ) = 2.01627e-03  max|θ-θlast| = $diff  Jstat = 8.90  Pr(>J) = 0.0117"""
-    @test sprint(show, MIME("text/plain"), r)[1:821] == """
-        NonlinearGMM with 7 moments and 5 parameters:
+    @test sprint(show, MIME("text/plain"), r)[1:844] == """
+        NonlinearGMM with 7 moments and 5 parameters over 4412 observations:
           Iterated GMM estimator:
             iter  $iter  =>  Q(θ) = 2.01627e-03  max|θ-θlast| = $diff
                           Jstat = 8.90        Pr(>J) = 0.0117
@@ -185,6 +186,16 @@ end
                    Estimate  Std. Error      z  Pr(>|z|)    Lower 95%  Upper 95%
         ────────────────────────────────────────────────────────────────────────
         private   0.52262    0.16011      3.26    0.0011   0.208809     0.83643"""
+
+    r = fit(IteratedGMM, Hybrid, vce, g, dg, collect(params), 7, length(data), maxiter=1)
+    @test isnan(Jstat(r))
+
+    # Verify that fit! proceeds with the iteration after terminating with maxiter
+    fit!(r; showtrace=true, maxiter=3)
+    @test r.est.iter[] == 3
+    r2 = fit(IteratedGMM, Hybrid, vce, g, dg, collect(params), 7, length(data), maxiter=3)
+    @test coef(r2) ≈ coef(r)
+    @test vcov(r2) ≈ vcov(r)
 
     d = data
     Z = [d.private d.chronic d.female d.age d.black d.hispanic ones(length(d))]
@@ -247,8 +258,8 @@ end
     @test coef(r) ≈ [1.9486602, -2.9661193, 1.0086338] atol=1e-6
     @test stderror(r) ≈ [0.1000265, 0.0923592, 0.1156561] atol=1e-6
 
-    @test sprint(show, MIME("text/plain"), r)[1:697] == """
-        NonlinearGMM with 3 moments and 3 parameters:
+    @test sprint(show, MIME("text/plain"), r)[1:719] == """
+        NonlinearGMM with 3 moments and 3 parameters over 409 observations:
           Iterated GMM estimator:
             iter   2  =>  Q(θ) = 9.68711e-34  max|θ-θlast| = 1.99001e-11
           Cluster-robust covariance estimator: id

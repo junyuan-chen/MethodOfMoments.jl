@@ -259,6 +259,40 @@ the Hansen's ``J`` statistic can be retrieved:
 Jstat(r)
 ```
 
+## Iterating Step by Step
+
+Results of iterating the GMM estimator for a small number of steps
+can be obtained by setting the keyword argument `maxiter`.
+Furthermore, there is no need to restart the entire estimation procedure
+for different numbers of steps.
+Suppose we are interested in the results for
+both the one-step and two-step GMM estimators,
+we can first obtain the results from the first step:
+
+```@example nonlineargmm
+# One-step GMM
+r = fit(IteratedGMM, Hybrid, vce, g, dg, params, 7, length(data), maxiter=1)
+```
+
+After copying the estimates of interest (e.g., `copy(coef(r))`),
+we proceed to the next step using `fit!`
+that updates the results in-place:
+
+```@example nonlineargmm
+# Two-step GMM without repeating the first step
+fit!(r, maxiter=2)
+```
+
+Notice that we have reused the same result object `r`
+and set a different value for `maxiter`.
+
+!!! info
+
+    The Hansen's ``J`` statistic is not reported for one-step GMM estimators
+    (`Jstat` returns `NaN`).
+    This is because the initial weight matrix for the GMM criterion can be arbitrary,
+    resulting in meaningless scaling for ``Q(\theta)``.
+
 ## Implementation Details
 
 Instead of literally solving a minimization problem

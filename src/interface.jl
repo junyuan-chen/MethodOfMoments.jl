@@ -16,6 +16,8 @@ function confint(m::AbstractGMMResult; level::Real=0.95)
     return b .- scale .* se, b .+ scale .* se
 end
 
+nobs(m::AbstractGMMResult) = nobs(m.est)
+
 """
     nparam(m::AbstractGMMResult)
 
@@ -34,7 +36,8 @@ nmoment(m::AbstractGMMResult) = nmoment(m.est)
     Jstat(m::AbstractGMMResult)
 
 Return the Hansen's J statistic for over-identified GMM.
-`NaN` is returned if the parameters are just-identified.
+`NaN` is returned for one-step GMM or
+the case where parameters are just-identified.
 """
 Jstat(m::AbstractGMMResult) = Jstat(m.est)
 Jstat(::AbstractGMMEstimator) = NaN
@@ -85,7 +88,8 @@ function show(io::IO, mime::MIME"text/plain", m::AbstractGMMResult)
     print(io, typeof(m).name.name, " with ", nm, " moment")
     nm > 1 && print(io, 's')
     print(io, " and ", np, " parameter")
-    println(io, np > 1 ? "s:" : ":")
+    np > 1 && print(io, 's')
+    println(io, " over ", nobs(m), " observations:")
     print(io, "  ")
     show(io, mime, m.est; twolines=true)
     println(io, "\n  ", m.vce)

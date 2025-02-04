@@ -43,6 +43,8 @@ function IteratedGMM(nparam::Integer, nmoment::Integer, nobs::Integer, ntasks::I
     return IteratedGMM(Ref(0), Ref(NaN), θlast, Ref(NaN), H, G, WG, dG, W, Wfac, Wup, p)
 end
 
+# ! H is horizontal
+nobs(est::IteratedGMM) = size(est.H, 2)
 nparam(est::IteratedGMM) = size(est.dG, 2)
 nmoment(est::IteratedGMM) = length(est.G)
 
@@ -224,8 +226,7 @@ function setvcov!(m::NonlinearGMM{<:IteratedGMM})
         mul!(m.vce.vcovcache1, m.vce.S, GWGGW')
         mul!(m.vcov, GWGGW, m.vce.vcovcache1)
     end
-    # ! H is horizontal
-    m.vcov ./= size(est.H, 2)
+    m.vcov ./= nobs(m)
 end
 
 function iterate(m::NonlinearGMM{<:IteratedGMM,VCE,<:NonlinearSystem},
@@ -287,12 +288,19 @@ function _show_trace(io::IO, est::AbstractGMMEstimator, newline::Bool, twolines:
     newline && println(io)
 end
 
+"""
+    fit!(m::NonlinearGMM{<:IteratedGMM}; kwargs...)
+    fit!(m::LinearGMM{<:IteratedLinearGMM}; kwargs...)
+
+An in-place version of [`fit`](@ref) for proceeding with the iteration.
+"""
 function fit!(m::NonlinearGMM{<:IteratedGMM};
         θtol::Real=1e-8, maxiter::Integer=10000, showtrace::Bool=false, kwargs...)
-    for iter in 1:maxiter
+    # m.est.iter[] starts from 0
+    for iter in m.est.iter[]+1:maxiter
         iterate(m, iter)
         test_θtol!(m.est, m.coef, θtol) && break
-        showtrace && _show_trace(stdout, m.est, true, false)
+        iter < maxiter && showtrace && _show_trace(stdout, m.est, true, false)
     end
     showtrace && _show_trace(stdout, m.est, true, false)
     try
@@ -300,11 +308,12 @@ function fit!(m::NonlinearGMM{<:IteratedGMM};
     catch
         @warn "variance-covariance matrix is not computed"
     end
+    return m
 end
 
 # H is horizontal
 Jstat(est::IteratedGMM) =
-    nmoment(est) > nparam(est) ? size(est.H, 2) * est.Q[] : NaN
+    nmoment(est) > nparam(est) && est.iter[] > 1 ? nobs(est) * est.Q[] : NaN
 
 show(io::IO, ::MIME"text/plain", est::IteratedGMM; twolines::Bool=false) =
     (println(io, "Iterated GMM estimator:"); print(io, "  ");

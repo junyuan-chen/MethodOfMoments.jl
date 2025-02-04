@@ -9,6 +9,7 @@
     @test coef(r) ≈ [0.00223983, 0.08151597, 120.70651] atol=1e-5
     @test vcov(r)[:,1] ≈ [4.516e-07, -0.00025511, -0.00353769] atol=1e-8
     @test stderror(r) ≈ [0.000672, 0.4445939, 15.25546] atol=1e-5
+    @test nobs(r) == nrow(data)
 
     r = fit(IteratedLinearGMM, vce, data, [eq], maxiter=2)
     # gmm (rent - {xb:hsngval pcturban _cons}),
@@ -23,8 +24,8 @@
         Iterated Linear GMM estimator:
             iter   2  =>  Q(θ) = 1.36728e-01  max|θ-θlast| = 8.58380e+00  Jstat = 6.84  Pr(>J) = 0.0773"""
 
-    @test sprint(show, MIME("text/plain"), r)[1:898] == """
-        LinearGMM with 6 moments and 3 parameters:
+    @test sprint(show, MIME("text/plain"), r)[1:919] == """
+        LinearGMM with 6 moments and 3 parameters over 50 observations:
           Iterated Linear GMM estimator:
             iter   2  =>  Q(θ) = 1.36728e-01  max|θ-θlast| = 8.58380e+00
                           Jstat = 6.84        Pr(>J) = 0.0773
@@ -33,6 +34,16 @@
                       Estimate    Std. Error      z  Pr(>|z|)     Lower 95%     Upper 95%
         ─────────────────────────────────────────────────────────────────────────────────
         hsngval     0.00146433   0.000447271   3.27    0.0011   0.000587694    0.00234096"""
+
+    r = fit(IteratedLinearGMM, vce, data, eq, maxiter=1)
+    @test isnan(Jstat(r))
+
+    # Verify that fit! proceeds with the iteration after terminating with maxiter
+    fit!(r; showtrace=true, maxiter=3)
+    @test r.est.iter[] == 3
+    r2 = fit(IteratedLinearGMM, vce, data, eq, maxiter=3)
+    @test coef(r2) ≈ coef(r)
+    @test vcov(r2) ≈ vcov(r)
 
     data = exampledata(:nlswork)
     data[!,:age2] = data.age.^2
@@ -97,9 +108,10 @@ end
     # gmm (mpg - {b1}*weight - {b2}*length - {b0}), instruments(weight length) onestep
     @test coef(r) ≈ [-0.00385148, -0.07959347, 47.884873] atol=1e-6
     @test stderror(r) ≈ [0.0019472, 0.0677536, 7.506064] atol=1e-4
+    @test nobs(r) == nrow(data)
 
-    @test sprint(show, MIME("text/plain"), r)[1:726] == """
-        LinearGMM with 3 moments and 3 parameters:
+    @test sprint(show, MIME("text/plain"), r)[1:747] == """
+        LinearGMM with 3 moments and 3 parameters over 74 observations:
           Just-identified linear GMM estimator
           Heteroskedasticity-robust covariance estimator
         ──────────────────────────────────────────────────────────────────────────

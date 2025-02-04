@@ -18,14 +18,14 @@ using TransformedLogDensities: TransformedLogDensity
 
 import Base: show, iterate, parent, getindex
 import LogDensityProblems: capabilities, dimension, logdensity, logdensity_and_gradient
-import StatsAPI: coef, coefnames, vcov, stderror, confint, fit, fit!
+import StatsAPI: coef, coefnames, vcov, stderror, confint, nobs, fit, fit!
 import StatsBase: mode
 import TransformVariables: transform
 
 # Reexport objects from NonlinearSystems
 export Hybrid
 # Reexport objects from StatsAPI
-export coef, coefnames, vcov, stderror, confint, fit, fit!
+export coef, coefnames, vcov, stderror, confint, nobs, fit, fit!
 # Reexport objects from StatsBase
 export mode
 
