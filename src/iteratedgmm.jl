@@ -51,6 +51,7 @@ nmoment(est::IteratedGMM) = length(est.G)
 # Fallback method where dg is expected to be a defined function
 _initdg(dg::Any, g, params, nmoment) = dg
 
+# Not estimator specific
 checksolvertype(T::Type) = throw(ArgumentError("solver of type $T is not supported"))
 checksolvertype(::Type{<:Hybrid}) = true
 
@@ -311,7 +312,6 @@ function fit!(m::NonlinearGMM{<:IteratedGMM};
     return m
 end
 
-# H is horizontal
 Jstat(est::IteratedGMM) =
     nmoment(est) > nparam(est) && est.iter[] > 1 ? nobs(est) * est.Q[] : NaN
 

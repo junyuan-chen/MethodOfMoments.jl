@@ -27,6 +27,7 @@ exampledata(name::Union{Symbol,String}) =
 const tests = [
     "iteratedgmm",
     "lineargmm",
+    "cugmm",
     "bayesian"
 ]
 

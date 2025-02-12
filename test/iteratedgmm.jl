@@ -211,7 +211,8 @@ end
     @test stderror(r) ≈ se atol=1e-6
 
     opt = NLopt.Opt(:LN_NELDERMEAD, length(params))
-    r = fit(IteratedGMM, opt, vce, g, dg, params, 7, length(data), winitial=w1)
+    r = fit(IteratedGMM, opt, vce, g, dg, params, 7, length(data);
+        winitial=w1, solverkwargs=(ftol_rel=0.0,))
     @test coef(r) ≈ b atol=1e-6
     @test stderror(r) ≈ se atol=1e-6
 
