@@ -1,7 +1,7 @@
 name = "MethodOfMoments"
 uuid = "32490229-d69f-4a68-9525-74935b3d7b50"
-authors = ["Junyuan Chen <norman.chen.git@gmail.com>"]
 version = "0.1.1"
+authors = ["Junyuan Chen <norman.chen.git@gmail.com>"]
 
 [deps]
 Combinatorics = "861a8166-3701-5b0c-9a16-15d98fcdc6aa"
@@ -37,10 +37,10 @@ Combinatorics = "1"
 DataFrames = "1"
 Distributions = "0.25"
 DistributionsAD = "0.6"
-ForwardDiff = "0.10"
+ForwardDiff = "0.10, 1"
 GroupedArrays = "0.3"
 LogDensityProblems = "2"
-MCMCChains = "6"
+MCMCChains = "6, 7"
 MacroTools = "0.5"
 NLopt = "1"
 NonlinearSystems = "0.1.3"
