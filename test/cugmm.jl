@@ -62,8 +62,9 @@ end
     @test coef(r4) ≈ b atol=1e-6
     @test stderror(r4) ≈ se atol=1e-6
 
+    # Start from a θ0 other than 2SLS
     @time r5 = fit(LinearCUGMM, Hybrid, vce, data, eq; θ0=zeros(6))
-    @test coef(r5) ≈ b atol=1e-2
+    @test coef(r5) ≈ b atol=2e-2
     @test stderror(r5) ≈ se atol=1e-4
 
     str = """

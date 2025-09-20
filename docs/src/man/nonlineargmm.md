@@ -308,3 +308,12 @@ This approach tends to be much faster than
 solving the scalar-valued problem,
 as it exploits more information from the Jacobian matrix of the moment conditions
 relative to the gradient vector for the scalar-valued problem.
+
+Nonetheless, solvers for scalar-valued functions
+from [NLopt.jl](https://github.com/jump-dev/NLopt.jl) are supported:
+
+```@example nonlineargmm
+using NLopt
+opt = NLopt.Opt(:LN_NELDERMEAD, length(params))
+r = fit(IteratedGMM, opt, vce, g, dg, params, 7, length(data), maxiter=2)
+```

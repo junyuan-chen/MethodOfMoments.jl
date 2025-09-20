@@ -18,6 +18,7 @@ makedocs(
         "Manual" => [
             "Generalized Method of Moments" => "man/nonlineargmm.md",
             "Linear GMM" => "man/lineargmm.md",
+            "Continuous-Updating GMM" => "man/cugmm.md",
             "Bayesian Quasi-Likelihood" => "man/bayesian.md"
             ],
         "References" => "refs.md"

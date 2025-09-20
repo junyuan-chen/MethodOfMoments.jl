@@ -52,6 +52,25 @@ function _initsolver(::Type{<:Hybrid}, est::CUGMM, g, dg, preg, predg, θ0;
         warn=warn, thres_jac=0, kwargs...)
 end
 
+"""
+    fit(::Type{<:CUGMM}, solvertype, vce::CovarianceEstimator,
+        g, dg, params, nmoment::Integer, nobs::Integer; kwargs...)
+
+Conduct nonlinear continuous-updating GMM estimation
+with a solver of `solvertype` and a variance-covariance matrix estimated by `vce`.
+Moment conditions and their derivatives are specified as `g` and `dg`.
+Names of the parameters, number of moment conditions
+and number of observations are provided as `params`, `nmoment` and `nobs`.
+See documentation website for details.
+
+# Keywords
+- `preg=nothing`: a function for processing the data frame before evaluating moment conditions.
+- `predg=nothing`: a function for processing the data frame before evaluating the derivatives for moment conditions.
+- `ntasks::Integer=_default_ntasks(nobs*nmoment)`: number of threads use for evaluating moment conditions and their derivatives across observations.
+- `initonly::Bool=false`: initialize the returned object without conducting the estimation.
+- `solverkwargs=NamedTuple()`: keyword arguments passed to the optimization solver as a `NamedTuple`.
+- `TF::Type=Float64`: type of the numerical values.
+"""
 function fit(::Type{<:CUGMM}, solvertype, vce::CovarianceEstimator,
         g, dg, params, nmoment::Integer, nobs::Integer;
         preg=nothing, predg=nothing,
@@ -85,6 +104,7 @@ function (f::VectorObjValue{<:CUGMM})(F, θ)
     mul!(F, est.Wup, est.G)
 end
 
+# Required by the NLopt ext
 function (f::ObjValue{<:CUGMM})(θ)
     est = f.est
     f.pre === nothing || f.pre(θ)
@@ -117,6 +137,12 @@ function setvcov!(m::NonlinearGMM{<:CUGMM})
     m.vcov ./= nobs(m)
 end
 
+"""
+    fit!(m::NonlinearGMM{<:CUGMM}; kwargs...)
+    fit!(m::LinearGMM{<:LinearCUGMM}; kwargs...)
+
+An in-place version of [`fit`](@ref) with preallocated `m`.
+"""
 function fit!(m::NonlinearGMM{<:CUGMM,VCE,<:NonlinearSystem}; kwargs...) where VCE
     solve!(m.solver)
     copyto!(m.coef, m.solver.x)
@@ -200,6 +226,23 @@ function LinearCUGMM(eqs, nobs::Integer, vce; TF::Type=Float64)
         Winv, Winvfac, resids, H, WZY, XZWZY, WZX, XZWZX, G, WG, Wup, vce)
 end
 
+"""
+    fit(::Type{<:LinearCUGMM}, solvertype, vce::CovarianceEstimator, data, eqs; kwargs...)
+
+Conduct linear continuous-updating GMM estimation with
+a solver of `solvertype` and a variance-covariance matrix estimated by `vce`.
+`data` is a `Tables.jl`-compatible data table.
+`eqs` specifies the names of the variables.
+This method is only relevant for the case where the parameters are over-identified.
+See documentation website for details.
+
+# Keywords
+- `nocons::Bool=false`: do not add constant terms automatically.
+- `θ0=:TSLS`: initial value of `θ` for the solver to get started; if not specified, the two-stage least squares estimation is conducted to set `θ0`.
+- `initonly::Bool=false`: initialize the returned object without conducting the estimation.
+- `solverkwargs=NamedTuple()`: keyword arguments passed to the optimization solver as a `NamedTuple`.
+- `TF::Type=Float64`: type of the numerical values.
+"""
 function fit(::Type{<:LinearCUGMM}, solvertype, vce::CovarianceEstimator, data, eqs;
         nocons::Bool=false, θ0=:TSLS, initonly::Bool=false,
         solverkwargs=NamedTuple(), TF::Type=Float64)
@@ -254,6 +297,7 @@ function (f::VectorObjValue{<:LinearCUGMM})(F, θ)
     mul!(F, est.Wup, est.G)
 end
 
+# Required by the NLopt ext
 function (f::ObjValue{<:LinearCUGMM})(θ)
     est = f.est
     setH!(est.H, est.resids, est.Ys, est.Xs, est.Zs, θ, est.eqs)
