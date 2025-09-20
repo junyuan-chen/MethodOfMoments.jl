@@ -8,6 +8,7 @@ DocumenterCitations = "daee34ce-89f3-4625-b898-19384cb65244"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 MCMCChains = "c7f686f2-ff18-58e9-bc7b-31028e88f75d"
 MethodOfMoments = "32490229-d69f-4a68-9525-74935b3d7b50"
+NLopt = "76087f3c-5699-56af-9a33-bf431cd00edd"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 TypedTables = "9d95f2ec-7b3d-5a63-8d20-e2491e220bb9"
 

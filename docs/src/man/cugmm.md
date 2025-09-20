@@ -3,7 +3,7 @@
 Instead of taking the weight matrix as given
 when evaluating the criterion function,
 a **contiuous-updating** (also known as continuously-updated, or CU) GMM estimator
-varies the weight matrix simultaneously when the coefficient estimate is altered.
+updates the weight matrix simultaneously when the parameter vector ``\theta`` is altered.
 Specifically, the criterion function
 ```math
 Q(\theta) = \left[\frac{1}{N}\sum_{i=1}^N \mathbf{g}_i(\theta)\right]'\mathbf{W}(\theta)\left[\frac{1}{N}\sum_{i=1}^N \mathbf{g}_i(\theta)\right]
