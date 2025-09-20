@@ -66,7 +66,7 @@ is the one that gives us 2SLS estimates.
     In case some of the regressors are highly correlated,
     the estimator may fail to generate a result.
 
-## Example: GMM IV Estimation with Clustering
+## [Example: GMM IV Estimation with Clustering](@id GMMIVexample)
 
 We replicate [Example 4](https://www.stata.com/manuals/rivregress.pdf)
 from Stata manual for `ivregress`:
