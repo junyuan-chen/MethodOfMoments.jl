@@ -36,13 +36,15 @@ See documentation website for details.
 - `preg=nothing`: a function for processing the data frame before evaluating moment conditions.
 - `predg=nothing`: a function for processing the data frame before evaluating the derivatives for moment conditions.
 - `deriv=nothing`: specify how gradients for the quasi-posterior functions are computed.
-- `ntasks::Integer=_default_ntasks(nobs*nmoment)`: number of threads use for evaluating moment conditions and their derivatives across observations.
+- `ntasks::Integer=_default_ntasks(nobs*nmoment)`: number of threads used for evaluating moment conditions and their derivatives across observations; only effective when `multithreaded=Val(true)`.
+- `multithreaded::Val{MT}=Val(true)`: use multiple threads.
 - `TF::Type=Float64`: type of the numerical values.
 """
 function BayesianGMM(vce::CovarianceEstimator, g, dg,
         params, nmoment::Integer, nobs::Integer;
         preg=nothing, predg=nothing, deriv=nothing,
-        ntasks::Integer=_default_ntasks(nobs*nmoment), TF::Type=Float64)
+        ntasks::Integer=_default_ntasks(nobs*nmoment),
+        multithreaded::Val{MT}=Val(true), TF::Type=Float64) where MT
     nparam = length(params)
     coef = Vector{TF}(undef, nparam)
     dl = Vector{TF}(undef, nparam)
@@ -52,21 +54,22 @@ function BayesianGMM(vce::CovarianceEstimator, g, dg,
     WG = Vector{TF}(undef, nmoment)
     dG = Matrix{TF}(undef, nmoment, nparam)
     W = Matrix{TF}(undef, nmoment, nmoment)
-    ntasks = min(ntasks, nobs)
-    if ntasks > 1
+    params, priors = _parse_bayes_params(params)
+    dprior = Vector{TF}(undef, nparam)
+    deriv = _parse_deriv(deriv)
+    ntasks = min(max(ntasks, 1), nobs)
+    if MT == true
         step = nobs ÷ ntasks
         rowcuts = Int[(1:step:1+step*(ntasks-1))..., nobs+1]
         Gs = [Vector{TF}(undef, nmoment) for _ in 1:ntasks]
         dGs = [Matrix{TF}(undef, nmoment, nparam) for _ in 1:ntasks]
         p = PartitionedGMMTasks(rowcuts, Gs, dGs)
+        return BayesianGMM(coef, vce, Ref(NaN), dl, g, dg, preg, predg, H, G, WG, dG, W,
+            p, params, priors, deriv, dprior)
     else
-        p = nothing
+        return BayesianGMM(coef, vce, Ref(NaN), dl, g, dg, preg, predg, H, G, WG, dG, W,
+            nothing, params, priors, deriv, dprior)
     end
-    params, priors = _parse_bayes_params(params)
-    dprior = Vector{TF}(undef, nparam)
-    deriv = _parse_deriv(deriv)
-    return BayesianGMM(coef, vce, Ref(NaN), dl, g, dg, preg, predg, H, G, WG, dG, W,
-        p, params, priors, deriv, dprior)
 end
 
 coef(m::BayesianGMM) = m.coef

@@ -19,8 +19,8 @@ struct IteratedGMM{P,TF} <: AbstractGMMEstimator{P,TF}
     p::P
 end
 
-function IteratedGMM(nparam::Integer, nmoment::Integer, nobs::Integer, ntasks::Integer;
-        TF::Type=Float64)
+function IteratedGMM(::Val{MT}, nparam::Integer, nmoment::Integer, nobs::Integer,
+        ntasks::Integer; TF::Type=Float64) where MT
     θlast = Vector{TF}(undef, nparam)
     # H is horizontal
     H = Matrix{TF}(undef, nmoment, nobs)
@@ -30,17 +30,17 @@ function IteratedGMM(nparam::Integer, nmoment::Integer, nobs::Integer, ntasks::I
     W = Matrix{TF}(undef, nmoment, nmoment)
     Wfac = RefValue{Cholesky{TF,Matrix{TF}}}()
     Wup = similar(W)
-    ntasks = min(ntasks, nobs)
-    if ntasks > 1
+    ntasks = min(max(ntasks, 1), nobs)
+    if MT == true
         step = nobs ÷ ntasks
         rowcuts = Int[(1:step:1+step*(ntasks-1))..., nobs+1]
         Gs = [Vector{TF}(undef, nmoment) for _ in 1:ntasks]
         dGs = [Matrix{TF}(undef, nmoment, nparam) for _ in 1:ntasks]
         p = PartitionedGMMTasks(rowcuts, Gs, dGs)
+        return IteratedGMM(Ref(0), Ref(NaN), θlast, Ref(NaN), H, G, WG, dG, W, Wfac, Wup, p)
     else
-        p = nothing
+        return IteratedGMM(Ref(0), Ref(NaN), θlast, Ref(NaN), H, G, WG, dG, W, Wfac, Wup, nothing)
     end
-    return IteratedGMM(Ref(0), Ref(NaN), θlast, Ref(NaN), H, G, WG, dG, W, Wfac, Wup, p)
 end
 
 # ! H is horizontal
@@ -87,7 +87,8 @@ See documentation website for details.
 - `winitial=I`: initial weight matrix; use identify matrix by default.
 - `θtol::Real=1e-8`: tolerance level for determining the convergence of parameters.
 - `maxiter::Integer=10000`: maximum number of iterations allowed.
-- `ntasks::Integer=_default_ntasks(nobs*nmoment)`: number of threads use for evaluating moment conditions and their derivatives across observations.
+- `ntasks::Integer=_default_ntasks(nobs*nmoment)`: number of threads used for evaluating moment conditions and their derivatives across observations; only effective when `multithreaded=Val(true)`.
+- `multithreaded::Val{MT}=Val(true)`: use multiple threads.
 - `showtrace::Bool=false`: print information as iteration proceeds.
 - `initonly::Bool=false`: initialize the returned object without conducting the estimation.
 - `solverkwargs=NamedTuple()`: keyword arguments passed to the optimization solver as a `NamedTuple`.
@@ -98,13 +99,13 @@ function fit(::Type{<:IteratedGMM}, solvertype, vce::CovarianceEstimator,
         preg=nothing, predg=nothing,
         winitial=I, θtol::Real=1e-8, maxiter::Integer=10000,
         ntasks::Integer=_default_ntasks(nobs*nmoment),
-        showtrace::Bool=false,
-        initonly::Bool=false, solverkwargs=NamedTuple(), TF::Type=Float64)
+        multithreaded::Val{MT}=Val(true), showtrace::Bool=false,
+        initonly::Bool=false, solverkwargs=NamedTuple(), TF::Type=Float64) where MT
     checksolvertype(solvertype)
     params, θ0 = _parse_params(params)
     nparam = length(params)
     dg = _initdg(dg, g, params, nmoment)
-    est = IteratedGMM(nparam, nmoment, nobs, ntasks; TF=TF)
+    est = IteratedGMM(multithreaded, nparam, nmoment, nobs, ntasks; TF=TF)
     # Must initialize W before initializing solver
     copyto!(est.W, winitial)
     est.Wfac[] = cholesky(Hermitian(est.W))

@@ -25,8 +25,9 @@ end
     g = g_stata_iv_ex4(data)
     dg = dg_stata_iv_ex4(data)
     vce = RobustVCE(6, 8, length(data))
-    @time r = fit(CUGMM, Hybrid, vce, g, dg, params, 8, length(data), ntasks=1;
-        solverkwargs=(thres_jac=0,))
+    @time r = fit(CUGMM, Hybrid, vce, g, dg, params, 8, length(data);
+        ntasks=1, multithreaded=Val(false), solverkwargs=(thres_jac=0,))
+    @test r.est.p === nothing
     # Compare results with Stata
     # ivreg2 ln_wage age c.age#c.age birth_yr grade (tenure = union wks_work msp), cue r
     b = [0.10747574, 0.01730719, -0.00055437, -0.00917305, 0.07049663, 0.89528047]
@@ -43,6 +44,7 @@ end
     @test stderror(r0) ≈ se atol=1e-5
 
     @time r1 = fit(CUGMM, Hybrid, vce, g, dg, p0, 8, length(data), ntasks=2)
+    @test r1.est.p isa PartitionedGMMTasks
     @test coef(r1) ≈ coef(r0) atol=1e-6
 
     opt = NLopt.Opt(:LN_NELDERMEAD, length(params))
