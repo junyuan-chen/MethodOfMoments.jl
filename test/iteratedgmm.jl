@@ -118,7 +118,8 @@ end
     dg = dg_stata_gmm_ex6(data)
     vce = RobustVCE(5, 5, length(data))
     r = fit(IteratedGMM, Hybrid, vce, g, dg, params, 5, length(data), ntasks=1,
-        solverkwargs=(showtrace=5,))
+        multithreaded=Val(false), solverkwargs=(showtrace=5,))
+    @test r.est.p === nothing
     # Compare results with Stata
     # gmm (docvis - exp({xb:private chronic female income _cons})),
     #    instruments(private chronic female income) igmm
@@ -160,6 +161,7 @@ end
     dg = dg_stata_gmm_ex8(data)
     vce = RobustVCE(5, 7, length(data))
     r = fit(IteratedGMM, Hybrid, vce, g, dg, collect(params), 7, length(data), ntasks=2)
+    @test r.est.p isa PartitionedGMMTasks
 
     # gmm (docvis - exp({xb:private chronic female income _cons})),
     #    instruments(private chronic female age black hispanic) igmm winitial(identity)

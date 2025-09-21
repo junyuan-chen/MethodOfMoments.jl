@@ -5,9 +5,10 @@
     vce = RobustVCE(5, 7, length(data))
     params = (:private=>Uniform(-1,2), :chronic=>Uniform(-1,2),
         :female=>Uniform(-1,2), :income=>Uniform(-1,2), :cons=>Normal())
-    m = BayesianGMM(vce, g, dg, params, 7, length(data))
+    m = BayesianGMM(vce, g, dg, params, 7, length(data), multithreaded=Val(false))
     θ = [0.5, 1, 1, 0.1, 0.1]
 
+    @test m.p === nothing
     @test dimension(m) == length(params)
     @test capabilities(m) == LogDensityOrder{1}()
     lpri = logprior(m, θ)
@@ -32,7 +33,9 @@
           private = 5.00000e-01  chronic = 1.00000e+00  female = 1.00000e+00  income = 1.00000e-01  cons = 1.00000e-01
           log(posterior) = -2.6803"""
 
-    m1 = BayesianGMM(vce, g, dg, collect(params), 7, length(data); deriv=ForwardDiff, ntasks=2)
+    m1 = BayesianGMM(vce, g, dg, collect(params), 7, length(data);
+        deriv=ForwardDiff, ntasks=2)
+    @test m1.p isa PartitionedGMMTasks
     l1, dl1 = logdensity_and_gradient(m1, θ)
     @test l1 ≈ l
     @test dl1 ≈ [-1.762191542650967, -1.0913702611945668, -0.980917818008333,
