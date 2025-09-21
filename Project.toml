@@ -1,6 +1,6 @@
 name = "MethodOfMoments"
 uuid = "32490229-d69f-4a68-9525-74935b3d7b50"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Junyuan Chen <norman.chen.git@gmail.com>"]
 
 [deps]
