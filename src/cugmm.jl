@@ -11,8 +11,8 @@ struct CUGMM{P,TF,VCE<:CovarianceEstimator} <: AbstractGMMEstimator{P,TF}
     vce::VCE
 end
 
-function CUGMM(nparam::Integer, nmoment::Integer, nobs::Integer, ntasks::Integer,
-        vce::CovarianceEstimator; TF::Type=Float64)
+function CUGMM(::Val{MT}, nparam::Integer, nmoment::Integer, nobs::Integer, ntasks::Integer,
+        vce::CovarianceEstimator; TF::Type=Float64) where MT
     # H is horizontal
     H = Matrix{TF}(undef, nmoment, nobs)
     G = Vector{TF}(undef, nmoment)
@@ -22,17 +22,17 @@ function CUGMM(nparam::Integer, nmoment::Integer, nobs::Integer, ntasks::Integer
     Wfac = RefValue{Cholesky{TF,Matrix{TF}}}()
     Wfac[] = cholesky!(diagm(0=>ones(TF, nmoment)))
     Wup = similar(W)
-    ntasks = min(ntasks, nobs)
-    if ntasks > 1
+    ntasks = min(max(ntasks, 1), nobs)
+    if MT == true
         step = nobs ÷ ntasks
         rowcuts = Int[(1:step:1+step*(ntasks-1))..., nobs+1]
         Gs = [Vector{TF}(undef, nmoment) for _ in 1:ntasks]
         dGs = [Matrix{TF}(undef, nmoment, nparam) for _ in 1:ntasks]
         p = PartitionedGMMTasks(rowcuts, Gs, dGs)
+        return CUGMM(Ref(NaN), H, G, WG, dG, W, Wfac, Wup, p, vce)
     else
-        p = nothing
-    end
-    return CUGMM(Ref(NaN), H, G, WG, dG, W, Wfac, Wup, p, vce)
+        return CUGMM(Ref(NaN), H, G, WG, dG, W, Wfac, Wup, nothing, vce)
+    end    
 end
 
 # ! H is horizontal
@@ -66,7 +66,8 @@ See documentation website for details.
 # Keywords
 - `preg=nothing`: a function for processing the data frame before evaluating moment conditions.
 - `predg=nothing`: a function for processing the data frame before evaluating the derivatives for moment conditions.
-- `ntasks::Integer=_default_ntasks(nobs*nmoment)`: number of threads use for evaluating moment conditions and their derivatives across observations.
+- `ntasks::Integer=_default_ntasks(nobs*nmoment)`: number of threads used for evaluating moment conditions and their derivatives across observations; only effective when `multithreaded=Val(true)`.
+- `multithreaded::Val{MT}=Val(true)`: use multiple threads.
 - `initonly::Bool=false`: initialize the returned object without conducting the estimation.
 - `solverkwargs=NamedTuple()`: keyword arguments passed to the optimization solver as a `NamedTuple`.
 - `TF::Type=Float64`: type of the numerical values.
@@ -75,12 +76,13 @@ function fit(::Type{<:CUGMM}, solvertype, vce::CovarianceEstimator,
         g, dg, params, nmoment::Integer, nobs::Integer;
         preg=nothing, predg=nothing,
         ntasks::Integer=_default_ntasks(nobs*nmoment),
-        initonly::Bool=false, solverkwargs=NamedTuple(), TF::Type=Float64)
+        multithreaded::Val{MT}=Val(true),
+        initonly::Bool=false, solverkwargs=NamedTuple(), TF::Type=Float64) where MT
     checksolvertype(solvertype)
     params, θ0 = _parse_params(params)
     nparam = length(params)
     dg = _initdg(dg, g, params, nmoment)
-    est = CUGMM(nparam, nmoment, nobs, ntasks, vce; TF=TF)
+    est = CUGMM(multithreaded, nparam, nmoment, nobs, ntasks, vce; TF=TF)
     # solver obj and jac are handled within _initsolver
     solver = _initsolver(solvertype, est, g, dg, preg, predg, θ0; solverkwargs...)
     coef = copy(θ0)
