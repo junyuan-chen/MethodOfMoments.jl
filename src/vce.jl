@@ -25,8 +25,14 @@ function RobustVCE(nparam::Integer, nmoment::Integer, nobs::Integer;
     return RobustVCE(S, convert(Int,nobs-adjustdofr), ca1, ca2)
 end
 
-function setS!(vce::RobustVCE, res::AbstractMatrix)
+function setS!(vce::RobustVCE, res::AbstractMatrix, ::Val{true})
     mul!(vce.S, res, res')
+    vce.S ./= vce.dofr
+    return vce.S
+end
+
+function setS!(vce::RobustVCE, res::AbstractMatrix, ::Val{false})
+    mul!(vce.S, res', res)
     vce.S ./= vce.dofr
     return vce.S
 end
@@ -83,7 +89,19 @@ function ClusterVCE(data, clusternames, nparam::Integer, nmoment::Integer;
     return ClusterVCE(clusternames, clusters, G, us, S, convert(TF,Sadj), ca1, ca2)
 end
 
-function setS!(vce::ClusterVCE{TF}, res::AbstractMatrix) where TF
+@inline function _setu!(::Val{true}, u, res, i, ic)
+    @inbounds for j in axes(res,1)
+        u[ic,j] += res[j,i]
+    end
+end
+
+@inline function _setu!(::Val{false}, u, res, i, ic)
+    @inbounds for j in axes(res,2)
+        u[ic,j] += res[i,j]
+    end
+end
+
+function setS!(vce::ClusterVCE{TF}, res::AbstractMatrix, horz::Val{S}) where {TF,S}
     nclu = length(vce.clusternames)
     fill!(vce.S, zero(TF))
     k = 0
@@ -94,10 +112,7 @@ function setS!(vce::ClusterVCE{TF}, res::AbstractMatrix) where TF
             fill!(u, zero(TF))
             g = vce.clusters[k]
             for (i, ic) in pairs(g.groups)
-                # ! Residual matrix is horizontal
-                @inbounds for j in axes(res,1)
-                    u[ic,j] += res[j,i]
-                end
+                _setu!(horz, u, res, i, ic)
             end
             mul!(vce.S, u', u, vce.Sadj * (-1)^(length(c) - 1), 1)
         end

@@ -3,6 +3,7 @@
     vce = RobustVCE(3, 6, size(data,1))
     eq = (:rent, (:hsngval, :pcturban), (:pcturban, :faminc, Symbol.(:reg, 2:4)...))
     r = fit(IteratedLinearGMM, vce, data, eq, maxiter=1)
+    @test horizontal(r.est) == Val(false)
     # Compare results with Stata GMM Example 2
     # gmm (rent - {xb:hsngval pcturban _cons}),
     #    instruments(pcturban faminc reg2-reg4) vce(unadjusted) onestep
@@ -105,6 +106,7 @@ end
     vce = RobustVCE(3, 3, size(data,1))
     eq = (:mpg, [:weight, :length])
     r = fit(JustIdentifiedLinearGMM, vce, data, eq)
+    @test horizontal(r.est) == Val(false)
     # gmm (mpg - {b1}*weight - {b2}*length - {b0}), instruments(weight length) onestep
     @test coef(r) ≈ [-0.00385148, -0.07959347, 47.884873] atol=1e-6
     @test stderror(r) ≈ [0.0019472, 0.0677536, 7.506064] atol=1e-4

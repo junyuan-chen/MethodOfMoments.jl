@@ -1,3 +1,14 @@
+function MethodOfMoments.setGH!(est::AbstractGMMEstimator{Nothing,TF,false}, g, θ) where TF
+    N = size(est.H, 1)
+    fill!(est.G, zero(TF))
+    for r in 1:N
+        h = g(θ, r)
+        est.H[r,:] .= h
+        est.G .+= h
+    end
+    est.G ./= N
+end
+
 @gdg function (g::g_stata_iv_ex4)(θ, r)
     @inbounds d = g.data[r]
     x = SVector{6,Float64}((d.tenure, d.age, d.age2, d.birth_yr, d.grade, 1.0))
@@ -28,12 +39,14 @@ end
     @time r = fit(CUGMM, Hybrid, vce, g, dg, params, 8, length(data);
         ntasks=1, multithreaded=Val(false), solverkwargs=(thres_jac=0,))
     @test r.est.p === nothing
+    @test horizontal(r.est) == Val(true)
     # Compare results with Stata
     # ivreg2 ln_wage age c.age#c.age birth_yr grade (tenure = union wks_work msp), cue r
     b = [0.10747574, 0.01730719, -0.00055437, -0.00917305, 0.07049663, 0.89528047]
     se = [0.0033784, 0.0054639, 0.0000917, 0.0012685, 0.001708, 0.1030211]
     @test coef(r) ≈ b atol=1e-5
     @test stderror(r) ≈ se atol=1e-5
+    @test nobs(r) == length(data) == size(r.est.H,2)
 
     # Initial value based on 2SLS
     p0 = (tenure=0.1060831918371669, age=0.016234501489638096, age2=-0.000530861756005715,
@@ -47,6 +60,11 @@ end
     @test r1.est.p isa PartitionedGMMTasks
     @test coef(r1) ≈ coef(r0) atol=1e-6
 
+    r1 = fit(CUGMM, Hybrid, vce, g, dg, params, 8, length(data);
+        multithreaded=Val(false), horizontal=Val(false), initonly=true)
+    @test horizontal(r1.est) == Val(false)
+    @test nobs(r1) == length(data) == size(r1.est.H,1)
+
     opt = NLopt.Opt(:LN_NELDERMEAD, length(params))
     opt.maxeval = 5000
     @time r2 = fit(CUGMM, opt, vce, g, dg, params, 8, length(data))
@@ -55,8 +73,10 @@ end
 
     eq = (:ln_wage, (:tenure=>[:union, :wks_work, :msp], :age, :age2, :birth_yr, :grade))
     @time r3 = fit(LinearCUGMM, Hybrid, vce, data, eq)
+    @test horizontal(r3.est) == Val(false)
     @test coef(r3) ≈ b atol=5e-4
     @test stderror(r3) ≈ se atol=1e-5
+    @test nobs(r3) == length(data) == size(r3.est.H,1)
 
     opt = NLopt.Opt(:LN_NELDERMEAD, length(params))
     opt.maxeval = 5000

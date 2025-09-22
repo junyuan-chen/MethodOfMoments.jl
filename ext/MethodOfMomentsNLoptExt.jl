@@ -54,11 +54,11 @@ function MM.iterate(m::NonlinearGMM{<:IteratedGMM,VCE,NLoptSolver}, state=1) whe
     m.solver.ret[] = r[3]
     # Last evaluation may not be at coef if the trial is rejected
     m.preg === nothing || m.preg(m.coef)
-    MM.setG!(m.est, m.g, m.coef)
+    MM.setGH!(m.est, m.g, m.coef)
     # Solver does not update dG in every step
     m.predg === nothing || m.predg(m.coef)
     MM.setdG!(m.est, m.dg, m.coef)
-    MM.setS!(m.vce, m.est.H)
+    MM.setS!(m.vce, m.est.H, MM.horizontal(m.est))
     m.est.iter[] += 1
     return m, state+1
 end
@@ -82,8 +82,8 @@ function MM.fit!(m::NonlinearGMM{<:CUGMM,VCE,NLoptSolver}; kwargs...) where VCE<
     # Last evaluation may not be at coef if the trial is rejected
     m.preg === nothing || m.preg(m.coef)
     est = m.est
-    MM.setG!(est, m.g, m.coef)
-    MM.setS!(est.vce, est.H)
+    MM.setGH!(est, m.g, m.coef)
+    MM.setS!(est.vce, est.H, MM.horizontal(est))
     copyto!(est.W, est.vce.S)
     inv!(cholesky!(est.W))
     # Solver does not update dG in every step
@@ -105,7 +105,7 @@ function MM.fit!(m::NonlinearGMM{<:LinearCUGMM,VCE,NLoptSolver}; kwargs...) wher
     # Last evaluation may not be at coef if the trial is rejected
     est = m.est
     MM.setH!(est.H, est.resids, est.Ys, est.Xs, est.Zs, m.coef, est.eqs)
-    MM.setS!(m.vce, est.H')
+    MM.setS!(m.vce, est.H, MM.horizontal(est))
     copyto!(est.Winv, m.vce.S)
     est.Winvfac[] = cholesky!(Hermitian(est.Winv))
     sum!(est.G, est.H')

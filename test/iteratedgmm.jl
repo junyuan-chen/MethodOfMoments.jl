@@ -120,6 +120,7 @@ end
     r = fit(IteratedGMM, Hybrid, vce, g, dg, params, 5, length(data), ntasks=1,
         multithreaded=Val(false), solverkwargs=(showtrace=5,))
     @test r.est.p === nothing
+    @test horizontal(r.est) == Val(true)
     # Compare results with Stata
     # gmm (docvis - exp({xb:private chronic female income _cons})),
     #    instruments(private chronic female income) igmm
@@ -130,7 +131,10 @@ end
     @test stderror(r, :chronic) ≈ stderror(r)[2]
     @test coefnames(r) == collect(params)
     @test isnan(Jstat(r))
-    @test nobs(r) == length(data)
+    @test nobs(r) == length(data) == size(r.est.H,2)
+
+    S0 = copy(vce.S)
+    @test setS!(vce, r.est.H', Val(false)) == S0
 
     @test_throws ArgumentError checksolvertype(Real)
 
@@ -156,6 +160,11 @@ end
     @test sprint(show, dg) == "dg_stata_gmm_ex6"
     @test sprint(show, MIME("text/plain"), g) ==
         "g_stata_gmm_ex6 (functor defined with @gdg for moment conditions)"
+
+    r1 = fit(IteratedGMM, Hybrid, vce, g, dg, params, 5, length(data), ntasks=1,
+        horizontal=Val(false), initonly=true)
+    @test horizontal(r1.est) == Val(false)
+    @test nobs(r1) == length(data) == size(r1.est.H,1)
 
     g = g_stata_gmm_ex8(data)
     dg = dg_stata_gmm_ex8(data)
@@ -274,6 +283,9 @@ end
     @test sprint(show, MIME("text/plain"), vce) == """
         1-way cluster-robust covariance estimator:
           id"""
+
+    S0 = copy(vce.S)
+    @test setS!(vce, r.est.H', Val(false)) == S0
 
     @test _default_ntasks(100_000) == Threads.nthreads() ÷ 2
     @test _default_ntasks(1_000_000) == Threads.nthreads()

@@ -1,4 +1,4 @@
-struct CUGMM{P,TF,VCE<:CovarianceEstimator} <: AbstractGMMEstimator{P,TF}
+struct CUGMM{P,TF,VCE<:CovarianceEstimator,S} <: AbstractGMMEstimator{P,TF,S}
     Q::RefValue{TF}
     H::Matrix{TF}
     G::Vector{TF}
@@ -11,10 +11,9 @@ struct CUGMM{P,TF,VCE<:CovarianceEstimator} <: AbstractGMMEstimator{P,TF}
     vce::VCE
 end
 
-function CUGMM(::Val{MT}, nparam::Integer, nmoment::Integer, nobs::Integer, ntasks::Integer,
-        vce::CovarianceEstimator; TF::Type=Float64) where MT
-    # H is horizontal
-    H = Matrix{TF}(undef, nmoment, nobs)
+function CUGMM(::Val{MT}, ::Val{S}, nparam::Integer, nmoment::Integer, nobs::Integer,
+        ntasks::Integer, vce::CovarianceEstimator; TF::Type=Float64) where {MT,S}
+    H = S == true ? Matrix{TF}(undef, nmoment, nobs) : Matrix{TF}(undef, nobs, nmoment)
     G = Vector{TF}(undef, nmoment)
     WG = Vector{TF}(undef, nmoment)
     dG = Matrix{TF}(undef, nmoment, nparam)
@@ -29,14 +28,17 @@ function CUGMM(::Val{MT}, nparam::Integer, nmoment::Integer, nobs::Integer, ntas
         Gs = [Vector{TF}(undef, nmoment) for _ in 1:ntasks]
         dGs = [Matrix{TF}(undef, nmoment, nparam) for _ in 1:ntasks]
         p = PartitionedGMMTasks(rowcuts, Gs, dGs)
-        return CUGMM(Ref(NaN), H, G, WG, dG, W, Wfac, Wup, p, vce)
+        return CUGMM{typeof(p),TF,typeof(vce),S}(
+            Ref(NaN), H, G, WG, dG, W, Wfac, Wup, p, vce)
     else
-        return CUGMM(Ref(NaN), H, G, WG, dG, W, Wfac, Wup, nothing, vce)
+        return CUGMM{Nothing,TF,typeof(vce),S}(
+            Ref(NaN), H, G, WG, dG, W, Wfac, Wup, nothing, vce)
     end    
 end
 
-# ! H is horizontal
-nobs(est::CUGMM) = size(est.H, 2)
+# ! H is horizontal by default
+nobs(est::CUGMM{<:Any,<:Any,<:Any,true}) = size(est.H, 2)
+nobs(est::CUGMM{<:Any,<:Any,<:Any,false}) = size(est.H, 1)
 nparam(est::CUGMM) = size(est.dG, 2)
 nmoment(est::CUGMM) = length(est.G)
 
@@ -68,6 +70,7 @@ See documentation website for details.
 - `predg=nothing`: a function for processing the data frame before evaluating the derivatives for moment conditions.
 - `ntasks::Integer=_default_ntasks(nobs*nmoment)`: number of threads used for evaluating moment conditions and their derivatives across observations; only effective when `multithreaded=Val(true)`.
 - `multithreaded::Val{MT}=Val(true)`: use multiple threads.
+- `horizontal::Val{S}=Val(true)`: stack residuals from moment conditions across observations by column (`Val(true)`) or by row (`Val(false)`).
 - `initonly::Bool=false`: initialize the returned object without conducting the estimation.
 - `solverkwargs=NamedTuple()`: keyword arguments passed to the optimization solver as a `NamedTuple`.
 - `TF::Type=Float64`: type of the numerical values.
@@ -76,13 +79,13 @@ function fit(::Type{<:CUGMM}, solvertype, vce::CovarianceEstimator,
         g, dg, params, nmoment::Integer, nobs::Integer;
         preg=nothing, predg=nothing,
         ntasks::Integer=_default_ntasks(nobs*nmoment),
-        multithreaded::Val{MT}=Val(true),
-        initonly::Bool=false, solverkwargs=NamedTuple(), TF::Type=Float64) where MT
+        multithreaded::Val{MT}=Val(true), horizontal::Val{S}=Val(true),
+        initonly::Bool=false, solverkwargs=NamedTuple(), TF::Type=Float64) where {MT,S}
     checksolvertype(solvertype)
     params, θ0 = _parse_params(params)
     nparam = length(params)
     dg = _initdg(dg, g, params, nmoment)
-    est = CUGMM(multithreaded, nparam, nmoment, nobs, ntasks, vce; TF=TF)
+    est = CUGMM(multithreaded, horizontal, nparam, nmoment, nobs, ntasks, vce; TF=TF)
     # solver obj and jac are handled within _initsolver
     solver = _initsolver(solvertype, est, g, dg, preg, predg, θ0; solverkwargs...)
     coef = copy(θ0)
@@ -95,8 +98,8 @@ end
 function (f::VectorObjValue{<:CUGMM})(F, θ)
     est = f.est
     f.pre === nothing || f.pre(θ)
-    setG!(est, f.g, θ)
-    setS!(est.vce, est.H)
+    setGH!(est, f.g, θ)
+    setS!(est.vce, est.H, horizontal(est))
     copyto!(est.W, est.vce.S)
     inv!(cholesky!(est.W))
     W1 = est.Wfac[].factors
@@ -110,8 +113,8 @@ end
 function (f::ObjValue{<:CUGMM})(θ)
     est = f.est
     f.pre === nothing || f.pre(θ)
-    setG!(est, f.g, θ)
-    setS!(est.vce, est.H)
+    setGH!(est, f.g, θ)
+    setS!(est.vce, est.H, horizontal(est))
     copyto!(est.W, est.vce.S)
     inv!(cholesky!(est.W))
     mul!(est.WG, est.W, est.G)
@@ -151,8 +154,8 @@ function fit!(m::NonlinearGMM{<:CUGMM,VCE,<:NonlinearSystem}; kwargs...) where V
     # Last evaluation may not be at coef if the trial is rejected
     m.preg === nothing || m.preg(m.coef)
     est = m.est
-    setG!(est, m.g, m.coef)
-    setS!(est.vce, est.H)
+    setGH!(est, m.g, m.coef)
+    setS!(est.vce, est.H, horizontal(est))
     copyto!(est.W, est.vce.S)
     inv!(cholesky!(est.W))
     # Solver does not update dG in every step
@@ -168,7 +171,7 @@ function fit!(m::NonlinearGMM{<:CUGMM,VCE,<:NonlinearSystem}; kwargs...) where V
     return m
 end
 
-struct LinearCUGMM{TF,VCE} <: AbstractGMMEstimator{Nothing,TF}
+struct LinearCUGMM{TF,VCE} <: AbstractGMMEstimator{Nothing,TF,false}
     eqs::Vector{Tuple{VarName,Vector{VarName},Vector{VarName}}}
     Q::RefValue{TF}
     Ys::Vector{Vector{TF}}
@@ -287,7 +290,7 @@ end
 function (f::VectorObjValue{<:LinearCUGMM})(F, θ)
     est = f.est
     setH!(est.H, est.resids, est.Ys, est.Xs, est.Zs, θ, est.eqs)
-    setS!(est.vce, est.H')
+    setS!(est.vce, est.H, Val(false))
     sum!(est.G, est.H')
     est.G ./= size(est.H, 1)
     copyto!(est.Winv, est.vce.S)
@@ -303,7 +306,7 @@ end
 function (f::ObjValue{<:LinearCUGMM})(θ)
     est = f.est
     setH!(est.H, est.resids, est.Ys, est.Xs, est.Zs, θ, est.eqs)
-    setS!(est.vce, est.H')
+    setS!(est.vce, est.H, Val(false))
     copyto!(est.Winv, est.vce.S)
     est.Winvfac[] = cholesky!(Hermitian(est.Winv))
     sum!(est.G, est.H')
@@ -331,7 +334,7 @@ function fit!(m::NonlinearGMM{<:LinearCUGMM}; kwargs...)
     copyto!(m.coef, m.solver.x)
     # Last evaluation may not be at coef if the trial is rejected
     setH!(est.H, est.resids, est.Ys, est.Xs, est.Zs, m.coef, est.eqs)
-    setS!(m.vce, est.H')
+    setS!(m.vce, est.H, Val(false))
     copyto!(est.Winv, m.vce.S)
     est.Winvfac[] = cholesky!(Hermitian(est.Winv))
     sum!(est.G, est.H')

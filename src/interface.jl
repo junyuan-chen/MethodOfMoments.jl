@@ -1,4 +1,6 @@
-abstract type AbstractGMMEstimator{P, TF<:AbstractFloat} end
+abstract type AbstractGMMEstimator{P, TF<:AbstractFloat, S} end
+
+horizontal(::AbstractGMMEstimator{<:Any, <:Any, S}) where S = Val(S)
 
 abstract type AbstractGMMResult{TF<:AbstractFloat} <: StatisticalModel end
 

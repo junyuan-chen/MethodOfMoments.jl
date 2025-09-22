@@ -12,7 +12,8 @@ using LinearAlgebra
 using LogDensityProblems: LogDensityOrder, capabilities, dimension, logdensity,
     logdensity_and_gradient
 using MCMCChains
-using MethodOfMoments: VarName, PartitionedGMMTasks, checksolvertype, acceptance_rate,
+using MethodOfMoments: AbstractGMMEstimator, VarName, PartitionedGMMTasks,
+    horizontal, setS!, checksolvertype, acceptance_rate,
     _default_ntasks, _parse_params, _parse_eqs, _parse_bayes_params, _parse_deriv
 using NLopt
 using Printf

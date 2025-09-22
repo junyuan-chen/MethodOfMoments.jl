@@ -1,4 +1,4 @@
-struct IteratedLinearGMM{TF} <: AbstractGMMEstimator{Nothing,TF}
+struct IteratedLinearGMM{TF} <: AbstractGMMEstimator{Nothing,TF,false}
     iter::RefValue{Int}
     Q::RefValue{TF}
     θlast::Vector{TF}
@@ -175,7 +175,7 @@ function iterate(m::LinearGMM{<:IteratedLinearGMM,VCE}, state=1) where VCE
     est.G ./= size(est.H, 1)
     state == 1 ? mul!(est.WG, est.Winv, est.G) : ldiv!(est.WG, est.Winvfac[], est.G)
     est.Q[] = est.G'est.WG
-    setS!(m.vce, est.H')
+    setS!(m.vce, est.H, Val(false))
     est.iter[] += 1
     return m, state+1
 end
@@ -206,7 +206,7 @@ show(io::IO, ::MIME"text/plain", est::IteratedLinearGMM; twolines::Bool=false) =
     (println(io, "Iterated Linear GMM estimator:"); print(io, "  ");
         _show_trace(io, est, false, twolines))
 
-struct JustIdentifiedLinearGMM{TF} <: AbstractGMMEstimator{Nothing,TF}
+struct JustIdentifiedLinearGMM{TF} <: AbstractGMMEstimator{Nothing,TF,false}
     Ys::Vector{Vector{TF}}
     Xs::Vector{Matrix{TF}}
     Zs::Vector{Matrix{TF}}
@@ -283,7 +283,7 @@ function fit!(m::LinearGMM{<:JustIdentifiedLinearGMM})
     copyto!(est.ZXinv, est.ZX)
     mul!(m.coef, inv!(lu!(est.ZXinv)), est.ZY)
     setH!(est.H, est.resids, est.Ys, est.Xs, est.Zs, m.coef, m.eqs)
-    setS!(m.vce, est.H')
+    setS!(m.vce, est.H, Val(false))
     try
         setvcov!(m)
     catch
