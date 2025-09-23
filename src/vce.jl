@@ -25,6 +25,9 @@ function RobustVCE(nparam::Integer, nmoment::Integer, nobs::Integer;
     return RobustVCE(S, convert(Int,nobs-adjustdofr), ca1, ca2)
 end
 
+nparam(vce::RobustVCE) = size(vce.vcovcache1, 2)
+nmoment(vce::RobustVCE) = size(vce.S, 1)
+
 function setS!(vce::RobustVCE, res::AbstractMatrix, ::Val{true})
     mul!(vce.S, res, res')
     vce.S ./= vce.dofr
@@ -43,6 +46,7 @@ Base.show(io::IO, ::RobustVCE) =
 struct ClusterVCE{TF<:AbstractFloat,TG} <: CovarianceEstimator
     clusternames::Vector{VarName}
     clusters::Vector{GroupedVector{TG}}
+    Cs::Vector{Vector{Int}}
     G::Int
     us::Vector{Matrix{TF}}
     S::Matrix{TF}
@@ -72,7 +76,10 @@ function ClusterVCE(data, clusternames, nparam::Integer, nmoment::Integer;
     clusternames = VarName[clusternames...]
     nclu = length(clusternames)
     clusters = map(n->GroupedArray(Tables.getcolumn(data, n), sort=nothing), clusternames)
+    # Avoid allocations from combinations in setS!
+    Cs = collect(combinations(1:nclu))
     G = minimum(x->x.ngroups, clusters)
+    # Bring in combinations of clusters; order must follow combinations(1:nclu)
     for n in 2:nclu
         for c in combinations(1:nclu, n)
             push!(clusters, GroupedArray((clusters[i] for i in c)..., sort=nothing))
@@ -86,36 +93,44 @@ function ClusterVCE(data, clusternames, nparam::Integer, nmoment::Integer;
     Sadj === nothing && (Sadj = 1/nobs)
     ca1 = similar(S, nmoment, nparam)
     ca2 = similar(S, nparam, nmoment)
-    return ClusterVCE(clusternames, clusters, G, us, S, convert(TF,Sadj), ca1, ca2)
+    return ClusterVCE(clusternames, clusters, Cs, G, us, S, convert(TF,Sadj), ca1, ca2)
 end
 
-@inline function _setu!(::Val{true}, u, res, i, ic)
-    @inbounds for j in axes(res,1)
-        u[ic,j] += res[j,i]
+nparam(vce::ClusterVCE) = size(vce.vcovcache1, 2)
+nmoment(vce::ClusterVCE) = size(vce.S, 1)
+
+_checkres(vce, res, ::Val{true}) = size(res, 1)==size(vce.S, 1) || throw(DimensionMismatch(
+        "Residual matrix has $(size(res, 1)) rows; expect $(size(vce.S, 1))"))
+
+_checkres(vce, res, ::Val{false}) = size(res, 2)==size(vce.S, 1) || throw(DimensionMismatch(
+        "Residual matrix has $(size(res, 2)) columns; expect $(size(vce.S, 1))"))
+
+# The shape of u is not so important relative to res for performance
+@inline function _setu!(::Val{true}, u, g, res)
+    for (i, ic) in pairs(g.groups)
+        for j in axes(res,1)
+            @inbounds u[ic,j] += res[j,i]
+        end
     end
 end
 
-@inline function _setu!(::Val{false}, u, res, i, ic)
-    @inbounds for j in axes(res,2)
-        u[ic,j] += res[i,j]
+@inline function _setu!(::Val{false}, u, g, res)
+    for j in axes(res,2)
+        for (i, ic) in pairs(g.groups)
+            @inbounds u[ic,j] += res[i,j]
+        end
     end
 end
 
 function setS!(vce::ClusterVCE{TF}, res::AbstractMatrix, horz::Val{S}) where {TF,S}
-    nclu = length(vce.clusternames)
+    _checkres(vce, res, horz)
     fill!(vce.S, zero(TF))
-    k = 0
-    for n in 1:nclu
-        for c in combinations(1:nclu, n)
-            k += 1
-            u = vce.us[k]
-            fill!(u, zero(TF))
-            g = vce.clusters[k]
-            for (i, ic) in pairs(g.groups)
-                _setu!(horz, u, res, i, ic)
-            end
-            mul!(vce.S, u', u, vce.Sadj * (-1)^(length(c) - 1), 1)
-        end
+    for (k, c) in enumerate(vce.Cs)
+        u = vce.us[k]
+        fill!(u, zero(TF))
+        g = vce.clusters[k]
+        _setu!(horz, u, g, res)
+        mul!(vce.S, u', u, vce.Sadj*ifelse(isodd(length(c)),1,-1), one(TF))
     end
     return vce.S
 end

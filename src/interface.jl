@@ -112,6 +112,15 @@ struct NonlinearGMM{TE<:AbstractGMMEstimator, VCE<:CovarianceEstimator, SOL,
     vce::VCE
     solver::SOL
     params::Vector{VarName}
+    function NonlinearGMM(coef, vcov, g, dg, preg, predg, est, vce, solver, params)
+        nparam(est) == nparam(vce) || throw(ArgumentError(
+            "Numbers of parameters of GMM and variance-covariance estimators do not match"))
+        nmoment(est) == nmoment(vce) || throw(ArgumentError(
+            "Numbers of moment conditions of GMM and variance-covariance estimators do not match"))
+        return new{typeof(est), typeof(vce), typeof(solver), typeof(g), typeof(dg),
+            typeof(preg), typeof(predg), eltype(coef)}(
+            coef, vcov, g, dg, preg, predg, est, vce, solver, params)
+    end
 end
 
 struct LinearGMM{TE<:AbstractGMMEstimator, VCE<:CovarianceEstimator,
@@ -122,4 +131,12 @@ struct LinearGMM{TE<:AbstractGMMEstimator, VCE<:CovarianceEstimator,
     vce::VCE
     eqs::Vector{Tuple{VarName,Vector{VarName},Vector{VarName}}} # Y, X, Z for each equation
     params::Vector{VarName}
+    function LinearGMM(coef, vcov, est, vce, eqs, params)
+        nparam(est) == nparam(vce) || throw(ArgumentError(
+            "Numbers of parameters of GMM and variance-covariance estimators do not match"))
+        nmoment(est) == nmoment(vce) || throw(ArgumentError(
+            "Numbers of moment conditions of GMM and variance-covariance estimators do not match"))
+        return new{typeof(est), typeof(vce), eltype(coef)}(
+            coef, vcov, est, vce, eqs, params)
+    end
 end

@@ -18,6 +18,17 @@ struct BayesianGMM{PR<:Tuple, DF, VCE, G, DG, PG, PDG, P,
     priors::PR
     deriv::DF
     dprior::Vector{TF}
+    function BayesianGMM(::Val{S}, coef, vce, l, dl, g, dg, preg, predg, H, G, WG, dG, W,
+            p, params, priors, deriv, dprior) where S
+        length(params) == nparam(vce) || throw(ArgumentError(
+            "Numbers of parameters of GMM and variance-covariance estimators do not match"))
+        length(G) == nmoment(vce) || throw(ArgumentError(
+            "Numbers of moment conditions of GMM and variance-covariance estimators do not match"))
+        return new{typeof(priors), typeof(deriv), typeof(vce), typeof(g), typeof(dg),
+            typeof(preg), typeof(predg), typeof(p), eltype(coef), S}(
+            coef, vce, l, dl, g, dg, preg, predg, H, G, WG, dG, W,
+            p, params, priors, deriv, dprior)
+    end
 end
 
 _parse_deriv(deriv::Nothing) = deriv
@@ -66,13 +77,11 @@ function BayesianGMM(vce::CovarianceEstimator, g, dg,
         Gs = [Vector{TF}(undef, nmoment) for _ in 1:ntasks]
         dGs = [Matrix{TF}(undef, nmoment, nparam) for _ in 1:ntasks]
         p = PartitionedGMMTasks(rowcuts, Gs, dGs)
-        return BayesianGMM{typeof(priors), typeof(deriv), typeof(vce), typeof(g), typeof(dg),
-            typeof(preg), typeof(predg), typeof(p), TF, S}(
+        return BayesianGMM(horizontal,
             coef, vce, Ref(NaN), dl, g, dg, preg, predg, H, G, WG, dG, W,
             p, params, priors, deriv, dprior)
     else
-        return BayesianGMM{typeof(priors), typeof(deriv), typeof(vce), typeof(g), typeof(dg),
-            typeof(preg), typeof(predg), Nothing, TF, S}(
+        return BayesianGMM(horizontal,
             coef, vce, Ref(NaN), dl, g, dg, preg, predg, H, G, WG, dG, W,
             nothing, params, priors, deriv, dprior)
     end

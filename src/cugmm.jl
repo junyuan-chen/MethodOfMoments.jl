@@ -82,7 +82,7 @@ function fit(::Type{<:CUGMM}, solvertype, vce::CovarianceEstimator,
         multithreaded::Val{MT}=Val(true), horizontal::Val{S}=Val(true),
         initonly::Bool=false, solverkwargs=NamedTuple(), TF::Type=Float64) where {MT,S}
     checksolvertype(solvertype)
-    params, θ0 = _parse_params(params)
+    params, θ0 = _parse_params(params, TF)
     nparam = length(params)
     dg = _initdg(dg, g, params, nmoment)
     est = CUGMM(multithreaded, horizontal, nparam, nmoment, nobs, ntasks, vce; TF=TF)

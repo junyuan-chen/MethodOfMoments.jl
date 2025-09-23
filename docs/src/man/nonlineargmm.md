@@ -78,7 +78,7 @@ Y_i = \exp(\theta'\mathbf{X}_i) + \varepsilon_i
 ```
 is assumed to be orthogonal to a vector of instruments ``\mathbf{Z}_i``.
 
-## Specifying Moment Conditions and Their Derivatives
+## [Specifying Moment Conditions and Their Derivatives](@id gdg)
 
 The moment conditions and their derivatives with respect to the parameters
 need to be provided as Julia functions
@@ -177,6 +177,7 @@ dg = dg_stata_gmm_ex8(data)
     The users are recommended to profile these functions
     to ensure they have acceptable performance.
     Ideally, these functions should be non-allocating and type stable.
+    For complicated scenarios, see [Advanced Usage](@ref) for an alternative approach.
 
 ## Specifying Variance-Covariance Estimator
 

@@ -289,5 +289,5 @@ end
 
     @test _default_ntasks(100_000) == Threads.nthreads() ÷ 2
     @test _default_ntasks(1_000_000) == Threads.nthreads()
-    @test_throws ArgumentError _parse_params((0.0,))
+    @test_throws ArgumentError _parse_params((0.0,), Float64)
 end
