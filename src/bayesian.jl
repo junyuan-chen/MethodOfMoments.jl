@@ -1,5 +1,5 @@
 struct BayesianGMM{PR<:Tuple, DF, VCE, G, DG, PG, PDG, P,
-        TF<:AbstractFloat} <: AbstractGMMEstimator{P,TF}
+        TF<:AbstractFloat, S} <: AbstractGMMEstimator{P,TF,S}
     coef::Vector{TF}
     vce::VCE
     l::RefValue{TF}
@@ -18,6 +18,17 @@ struct BayesianGMM{PR<:Tuple, DF, VCE, G, DG, PG, PDG, P,
     priors::PR
     deriv::DF
     dprior::Vector{TF}
+    function BayesianGMM(::Val{S}, coef, vce, l, dl, g, dg, preg, predg, H, G, WG, dG, W,
+            p, params, priors, deriv, dprior) where S
+        length(params) == nparam(vce) || throw(ArgumentError(
+            "Numbers of parameters of GMM and variance-covariance estimators do not match"))
+        length(G) == nmoment(vce) || throw(ArgumentError(
+            "Numbers of moment conditions of GMM and variance-covariance estimators do not match"))
+        return new{typeof(priors), typeof(deriv), typeof(vce), typeof(g), typeof(dg),
+            typeof(preg), typeof(predg), typeof(p), eltype(coef), S}(
+            coef, vce, l, dl, g, dg, preg, predg, H, G, WG, dG, W,
+            p, params, priors, deriv, dprior)
+    end
 end
 
 _parse_deriv(deriv::Nothing) = deriv
@@ -38,18 +49,20 @@ See documentation website for details.
 - `deriv=nothing`: specify how gradients for the quasi-posterior functions are computed.
 - `ntasks::Integer=_default_ntasks(nobs*nmoment)`: number of threads used for evaluating moment conditions and their derivatives across observations; only effective when `multithreaded=Val(true)`.
 - `multithreaded::Val{MT}=Val(true)`: use multiple threads.
+- `horizontal::Val{S}=Val(true)`: stack residuals from moment conditions across observations by column (`Val(true)`) or by row (`Val(false)`).
 - `TF::Type=Float64`: type of the numerical values.
 """
 function BayesianGMM(vce::CovarianceEstimator, g, dg,
         params, nmoment::Integer, nobs::Integer;
         preg=nothing, predg=nothing, deriv=nothing,
         ntasks::Integer=_default_ntasks(nobs*nmoment),
-        multithreaded::Val{MT}=Val(true), TF::Type=Float64) where MT
+        multithreaded::Val{MT}=Val(true),
+        horizontal::Val{S}=Val(true), TF::Type=Float64) where {MT,S}
     nparam = length(params)
     coef = Vector{TF}(undef, nparam)
     dl = Vector{TF}(undef, nparam)
-    # H is horizontal
-    H = Matrix{TF}(undef, nmoment, nobs)
+    # H is horizontal by default
+    H = S == true ? Matrix{TF}(undef, nmoment, nobs) : Matrix{TF}(undef, nobs, nmoment)
     G = Vector{TF}(undef, nmoment)
     WG = Vector{TF}(undef, nmoment)
     dG = Matrix{TF}(undef, nmoment, nparam)
@@ -64,14 +77,20 @@ function BayesianGMM(vce::CovarianceEstimator, g, dg,
         Gs = [Vector{TF}(undef, nmoment) for _ in 1:ntasks]
         dGs = [Matrix{TF}(undef, nmoment, nparam) for _ in 1:ntasks]
         p = PartitionedGMMTasks(rowcuts, Gs, dGs)
-        return BayesianGMM(coef, vce, Ref(NaN), dl, g, dg, preg, predg, H, G, WG, dG, W,
+        return BayesianGMM(horizontal,
+            coef, vce, Ref(NaN), dl, g, dg, preg, predg, H, G, WG, dG, W,
             p, params, priors, deriv, dprior)
     else
-        return BayesianGMM(coef, vce, Ref(NaN), dl, g, dg, preg, predg, H, G, WG, dG, W,
+        return BayesianGMM(horizontal,
+            coef, vce, Ref(NaN), dl, g, dg, preg, predg, H, G, WG, dG, W,
             nothing, params, priors, deriv, dprior)
     end
 end
 
+nobs(m::BayesianGMM{<:Any,<:Any,<:Any,<:Any,<:Any,<:Any,<:Any,<:Any,<:Any,true}) =
+    size(m.H, 2)
+nobs(m::BayesianGMM{<:Any,<:Any,<:Any,<:Any,<:Any,<:Any,<:Any,<:Any,<:Any,false}) =
+    size(m.H, 1)
 coef(m::BayesianGMM) = m.coef
 coef(m::BayesianGMM, n::VarName) = m.coef[findfirst(==(n), m.params)]
 coefnames(m::BayesianGMM) = m.params
@@ -151,8 +170,8 @@ end
 function loglikelihood!(m::BayesianGMM, θ)
     copyto!(m.coef, θ)
     m.preg === nothing || m.preg(θ)
-    setG!(m, m.g, θ)
-    setS!(m.vce, m.H)
+    setGH!(m, m.g, θ)
+    setS!(m.vce, m.H, horizontal(m))
     copyto!(m.W, m.vce.S)
     try
         ldiv!(m.WG, cholesky!(Hermitian(m.W)), m.G)

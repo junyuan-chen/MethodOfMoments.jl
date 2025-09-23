@@ -29,9 +29,9 @@ end
 
 const VarName = Union{Symbol, Int}
 
-function _parse_params(ps::Union{AbstractVector{<:Pair}, Base.Pairs})
+function _parse_params(ps::Union{AbstractVector{<:Pair}, Base.Pairs}, TF::Type)
     names = Vector{VarName}(undef, length(ps))
-    initvals = Vector{Float64}(undef, length(ps))
+    initvals = Vector{TF}(undef, length(ps))
     for (i, p) in enumerate(ps)
         names[i] = p[1]
         initvals[i] = p[2]
@@ -39,21 +39,21 @@ function _parse_params(ps::Union{AbstractVector{<:Pair}, Base.Pairs})
     return names, initvals
 end
 
-_parse_params(ps::NamedTuple) = _parse_params(pairs(ps))
+_parse_params(ps::NamedTuple, TF::Type) = _parse_params(pairs(ps), TF::Type)
 
-_parse_params(ps::AbstractVector{<:VarName}) =
-    collect(VarName, ps), zeros(length(ps))
+_parse_params(ps::AbstractVector{<:VarName}, TF::Type) =
+    collect(VarName, ps), zeros(TF, length(ps))
 
-function _parse_params(ps::Tuple)
+function _parse_params(ps::Tuple, TF::Type)
     names = Vector{VarName}(undef, length(ps))
-    initvals = Vector{Float64}(undef, length(ps))
+    initvals = Vector{TF}(undef, length(ps))
     for (i, p) in enumerate(ps)
         if p isa Pair
             names[i] = p[1]
             initvals[i] = p[2]
         elseif p isa VarName
             names[i] = p
-            initvals[i] = 0.0
+            initvals[i] = zero(TF)
         else
             throw(ArgumentError("invalid specification of params"))
         end

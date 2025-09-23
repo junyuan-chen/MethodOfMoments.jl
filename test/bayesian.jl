@@ -9,6 +9,8 @@
     θ = [0.5, 1, 1, 0.1, 0.1]
 
     @test m.p === nothing
+    @test horizontal(m) == Val(true)
+    @test nobs(m) == length(data) == size(m.H,2)
     @test dimension(m) == length(params)
     @test capabilities(m) == LogDensityOrder{1}()
     lpri = logprior(m, θ)
@@ -32,6 +34,11 @@
         BayesianGMM with 7 moments and 5 parameters:
           private = 5.00000e-01  chronic = 1.00000e+00  female = 1.00000e+00  income = 1.00000e-01  cons = 1.00000e-01
           log(posterior) = -2.6803"""
+
+    m = BayesianGMM(vce, g, dg, params, 7, length(data),
+        multithreaded=Val(false), horizontal=Val(false))
+    @test horizontal(m) == Val(false)
+    @test nobs(m) == length(data) == size(m.H,1)
 
     m1 = BayesianGMM(vce, g, dg, collect(params), 7, length(data);
         deriv=ForwardDiff, ntasks=2)

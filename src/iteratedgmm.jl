@@ -4,7 +4,7 @@ struct PartitionedGMMTasks{TF}
     dGs::Vector{Matrix{TF}}
 end
 
-struct IteratedGMM{P,TF} <: AbstractGMMEstimator{P,TF}
+struct IteratedGMM{P,TF,S} <: AbstractGMMEstimator{P,TF,S}
     iter::RefValue{Int}
     Q::RefValue{TF}
     θlast::Vector{TF}
@@ -19,11 +19,10 @@ struct IteratedGMM{P,TF} <: AbstractGMMEstimator{P,TF}
     p::P
 end
 
-function IteratedGMM(::Val{MT}, nparam::Integer, nmoment::Integer, nobs::Integer,
-        ntasks::Integer; TF::Type=Float64) where MT
+function IteratedGMM(::Val{MT}, ::Val{S}, nparam::Integer, nmoment::Integer, nobs::Integer,
+        ntasks::Integer; TF::Type=Float64) where {MT,S}
     θlast = Vector{TF}(undef, nparam)
-    # H is horizontal
-    H = Matrix{TF}(undef, nmoment, nobs)
+    H = S == true ? Matrix{TF}(undef, nmoment, nobs) : Matrix{TF}(undef, nobs, nmoment)
     G = Vector{TF}(undef, nmoment)
     WG = Vector{TF}(undef, nmoment)
     dG = Matrix{TF}(undef, nmoment, nparam)
@@ -37,14 +36,17 @@ function IteratedGMM(::Val{MT}, nparam::Integer, nmoment::Integer, nobs::Integer
         Gs = [Vector{TF}(undef, nmoment) for _ in 1:ntasks]
         dGs = [Matrix{TF}(undef, nmoment, nparam) for _ in 1:ntasks]
         p = PartitionedGMMTasks(rowcuts, Gs, dGs)
-        return IteratedGMM(Ref(0), Ref(NaN), θlast, Ref(NaN), H, G, WG, dG, W, Wfac, Wup, p)
+        return IteratedGMM{typeof(p),TF,S}(Ref(0), Ref(NaN), θlast, Ref(NaN),
+            H, G, WG, dG, W, Wfac, Wup, p)
     else
-        return IteratedGMM(Ref(0), Ref(NaN), θlast, Ref(NaN), H, G, WG, dG, W, Wfac, Wup, nothing)
+        return IteratedGMM{Nothing,TF,S}(Ref(0), Ref(NaN), θlast, Ref(NaN),
+            H, G, WG, dG, W, Wfac, Wup, nothing)
     end
 end
 
-# ! H is horizontal
-nobs(est::IteratedGMM) = size(est.H, 2)
+# ! H is horizontal by default
+nobs(est::IteratedGMM{<:Any,<:Any,true}) = size(est.H, 2)
+nobs(est::IteratedGMM{<:Any,<:Any,false}) = size(est.H, 1)
 nparam(est::IteratedGMM) = size(est.dG, 2)
 nmoment(est::IteratedGMM) = length(est.G)
 
@@ -89,6 +91,7 @@ See documentation website for details.
 - `maxiter::Integer=10000`: maximum number of iterations allowed.
 - `ntasks::Integer=_default_ntasks(nobs*nmoment)`: number of threads used for evaluating moment conditions and their derivatives across observations; only effective when `multithreaded=Val(true)`.
 - `multithreaded::Val{MT}=Val(true)`: use multiple threads.
+- `horizontal::Val{S}=Val(true)`: stack residuals from moment conditions across observations by column (`Val(true)`) or by row (`Val(false)`).
 - `showtrace::Bool=false`: print information as iteration proceeds.
 - `initonly::Bool=false`: initialize the returned object without conducting the estimation.
 - `solverkwargs=NamedTuple()`: keyword arguments passed to the optimization solver as a `NamedTuple`.
@@ -99,13 +102,14 @@ function fit(::Type{<:IteratedGMM}, solvertype, vce::CovarianceEstimator,
         preg=nothing, predg=nothing,
         winitial=I, θtol::Real=1e-8, maxiter::Integer=10000,
         ntasks::Integer=_default_ntasks(nobs*nmoment),
-        multithreaded::Val{MT}=Val(true), showtrace::Bool=false,
-        initonly::Bool=false, solverkwargs=NamedTuple(), TF::Type=Float64) where MT
+        multithreaded::Val{MT}=Val(true), horizontal::Val{S}=Val(true),
+        showtrace::Bool=false, initonly::Bool=false,
+        solverkwargs=NamedTuple(), TF::Type=Float64) where {MT,S}
     checksolvertype(solvertype)
-    params, θ0 = _parse_params(params)
+    params, θ0 = _parse_params(params, TF)
     nparam = length(params)
     dg = _initdg(dg, g, params, nmoment)
-    est = IteratedGMM(multithreaded, nparam, nmoment, nobs, ntasks; TF=TF)
+    est = IteratedGMM(multithreaded, horizontal, nparam, nmoment, nobs, ntasks; TF=TF)
     # Must initialize W before initializing solver
     copyto!(est.W, winitial)
     est.Wfac[] = cholesky(Hermitian(est.W))
@@ -122,6 +126,34 @@ function setG!(est::AbstractGMMEstimator{Nothing,TF}, g, θ) where TF
     N = size(est.H, 2)
     fill!(est.G, zero(TF))
     for r in 1:N
+        est.G .+= g(θ, r)
+    end
+    est.G ./= N
+end
+
+function setG!(est::AbstractGMMEstimator{<:PartitionedGMMTasks,TF}, g, θ) where TF
+    rowcuts = est.p.rowcuts
+    ntasks = length(rowcuts) - 1
+    @sync for i in 1:ntasks
+        Threads.@spawn begin
+            G = est.p.Gs[i]
+            fill!(G, zero(TF))
+            for r in rowcuts[i]:rowcuts[i+1]-1
+                G .+= g(θ, r)
+            end
+        end
+    end
+    fill!(est.G, zero(TF))
+    for i in 1:ntasks
+        est.G .+= est.p.Gs[i]
+    end
+    est.G ./= rowcuts[end]-1
+end
+
+function setGH!(est::AbstractGMMEstimator{Nothing,TF,true}, g, θ) where TF
+    N = size(est.H, 2)
+    fill!(est.G, zero(TF))
+    for r in 1:N
         h = g(θ, r)
         est.H[:,r] .= h
         est.G .+= h
@@ -129,7 +161,7 @@ function setG!(est::AbstractGMMEstimator{Nothing,TF}, g, θ) where TF
     est.G ./= N
 end
 
-function setG!(est::AbstractGMMEstimator{<:PartitionedGMMTasks,TF}, g, θ) where TF
+function setGH!(est::AbstractGMMEstimator{<:PartitionedGMMTasks,TF,true}, g, θ) where TF
     rowcuts = est.p.rowcuts
     ntasks = length(rowcuts) - 1
     @sync for i in 1:ntasks
@@ -252,13 +284,13 @@ function iterate(m::NonlinearGMM{<:IteratedGMM,VCE,<:NonlinearSystem},
     copyto!(m.coef, m.solver.x)
     # Last evaluation may not be at coef if the trial is rejected
     m.preg === nothing || m.preg(m.coef)
-    setG!(est, m.g, m.coef)
+    setGH!(est, m.g, m.coef)
     # Solver does not update dG in every step
     m.predg === nothing || m.predg(m.coef)
     setdG!(est, m.dg, m.coef)
     mul!(est.WG, est.W, est.G)
     est.Q[] = est.G'est.WG
-    setS!(m.vce, est.H)
+    setS!(m.vce, est.H, horizontal(est))
     est.iter[] += 1
     return m, state+1
 end
