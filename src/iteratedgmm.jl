@@ -102,9 +102,9 @@ function fit(::Type{<:IteratedGMM}, solvertype, vce::CovarianceEstimator,
         preg=nothing, predg=nothing,
         winitial=I, θtol::Real=1e-8, maxiter::Integer=10000,
         ntasks::Integer=_default_ntasks(nobs*nmoment),
-        multithreaded::Val{MT}=Val(true), showtrace::Bool=false,
-        horizontal::Val{S}=Val(true),
-        initonly::Bool=false, solverkwargs=NamedTuple(), TF::Type=Float64) where {MT,S}
+        multithreaded::Val{MT}=Val(true), horizontal::Val{S}=Val(true),
+        showtrace::Bool=false, initonly::Bool=false,
+        solverkwargs=NamedTuple(), TF::Type=Float64) where {MT,S}
     checksolvertype(solvertype)
     params, θ0 = _parse_params(params, TF)
     nparam = length(params)
