@@ -122,6 +122,30 @@ function fit(::Type{<:IteratedGMM}, solvertype, vce::CovarianceEstimator,
     return m
 end
 
+function fit!(m::NonlinearGMM{<:IteratedGMM}, g, dg, params;
+        preg=nothing, predg=nothing,
+        winitial=I, θtol::Real=1e-8, maxiter::Integer=10000,
+        showtrace::Bool=false, initonly::Bool=false,
+        solverkwargs=NamedTuple(), TF::Type=Float64)
+    params, θ0 = _parse_params(params, TF)
+    length(params) == nparam(m) || error("Number of parameters cannot be changed")
+    dg = _initdg(dg, g, params, nmoment(m))
+    est = m.est
+    est.iter[] = 0
+    est.Q[] = NaN
+    fill!(est.θlast, NaN)
+    est.diff[] = NaN
+    # Must initialize W before initializing solver
+    copyto!(est.W, winitial)
+    est.Wfac[] = cholesky(Hermitian(est.W))
+    # solver obj and jac are handled within _initsolver
+    solver = _initsolver(_solvertype(m), est, g, dg, preg, predg, θ0; solverkwargs...)
+    coef = copyto!(m.coef, θ0)
+    m = NonlinearGMM(coef, m.vcov, g, dg, preg, predg, est, m.vce, solver, params)
+    initonly || fit!(m; winitial=winitial, θtol=θtol, maxiter=maxiter, showtrace=showtrace)
+    return m
+end
+
 function setG!(est::AbstractGMMEstimator{Nothing,TF}, g, θ) where TF
     N = size(est.H, 2)
     fill!(est.G, zero(TF))

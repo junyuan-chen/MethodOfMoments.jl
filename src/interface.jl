@@ -123,6 +123,9 @@ struct NonlinearGMM{TE<:AbstractGMMEstimator, VCE<:CovarianceEstimator, SOL,
     end
 end
 
+_solvertype(m::NonlinearGMM{<:Any,<:Any,
+    <:NonlinearSystem{<:Any,<:Any,<:Any,<:HybridSolver}}) = Hybrid
+
 struct LinearGMM{TE<:AbstractGMMEstimator, VCE<:CovarianceEstimator,
         TF} <: AbstractGMMResult{TF}
     coef::Vector{TF}

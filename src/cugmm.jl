@@ -95,6 +95,22 @@ function fit(::Type{<:CUGMM}, solvertype, vce::CovarianceEstimator,
     return m
 end
 
+function fit!(m::NonlinearGMM{<:CUGMM,VCE,<:NonlinearSystem}, g, dg, params;
+        preg=nothing, predg=nothing, initonly::Bool=false,
+        solverkwargs=NamedTuple()) where VCE
+    TF, nmm = eltype(m.coef), nmoment(m)
+    params, θ0 = _parse_params(params, TF)
+    length(params) == nparam(m) || error("Number of parameters cannot be changed")
+    dg = _initdg(dg, g, params, nmm)
+    est = m.est
+    est.Q[] = NaN
+    solver = _initsolver(_solvertype(m), est, g, dg, preg, predg, θ0; solverkwargs...)
+    coef = copyto!(m.coef, θ0)
+    m = NonlinearGMM(coef, m.vcov, g, dg, preg, predg, est, m.vce, solver, params)
+    initonly || fit!(m)
+    return m
+end
+
 function (f::VectorObjValue{<:CUGMM})(F, θ)
     est = f.est
     f.pre === nothing || f.pre(θ)

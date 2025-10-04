@@ -23,6 +23,20 @@ end
     return z .* x'
 end
 
+@gdg function (g::g_stata_iv_ex4_2)(θ, r)
+    @inbounds d = g.data[r]
+    x = SVector{6,Float64}((d.age, d.age2, d.tenure, d.birth_yr, d.grade, 1.0))
+    z = SVector{8,Float64}((d.union, d.wks_work, d.msp, d.age, d.age2, d.birth_yr, d.grade, 1.0))
+    return (d.ln_wage - θ'x) .* z
+end
+
+@gdg function (dg::dg_stata_iv_ex4_2)(θ, r)
+    @inbounds d = dg.data[r]
+    x = SVector{6,Float64}((d.age, d.age2, d.tenure, d.birth_yr, d.grade, 1.0))
+    z = SVector{8,Float64}((d.union, d.wks_work, d.msp, d.age, d.age2, d.birth_yr, d.grade, 1.0))
+    return z .* x'
+end
+
 @testset "CUGMM LinearCUGMM" begin
     data = exampledata(:nlswork)
     data[!,:age2] = data.age.^2
@@ -59,6 +73,17 @@ end
     @time r1 = fit(CUGMM, Hybrid, vce, g, dg, p0, 8, length(data), ntasks=2)
     @test r1.est.p isa PartitionedGMMTasks
     @test coef(r1) ≈ coef(r0) atol=1e-6
+    b1 = copy(coef(r1))
+    se1 = stderror(r1)
+
+    g2 = g_stata_iv_ex4_2(data)
+    dg2 = dg_stata_iv_ex4_2(data)
+    params2 = (:age, :age2, :tenure, :birth_yr, :grade, :cons)
+    r12 = fit!(r1, g2, dg2, params2)
+    @test coef(r12) ≈ b1[[2,3,1,4,5,6]] atol=1e-6
+    @test coef(r12) === coef(r1)
+    @test vcov(r12) === vcov(r1)
+    @test stderror(r12) ≈ se1[[2,3,1,4,5,6]]
 
     r1 = fit(CUGMM, Hybrid, vce, g, dg, params, 8, length(data);
         multithreaded=Val(false), horizontal=Val(false), initonly=true)
