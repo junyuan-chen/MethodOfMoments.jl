@@ -77,7 +77,7 @@ function ClusterVCE(data, clusternames, nparam::Integer, nmoment::Integer;
     nclu = length(clusternames)
     clusters = map(n->GroupedArray(Tables.getcolumn(data, n), sort=nothing), clusternames)
     # Avoid allocations from combinations in setS!
-    Cs = collect(combinations(1:nclu))
+    Cs = collect(_combinations(1:nclu))
     G = minimum(x->x.ngroups, clusters)
     # Bring in combinations of clusters; order must follow combinations(1:nclu)
     for n in 2:nclu

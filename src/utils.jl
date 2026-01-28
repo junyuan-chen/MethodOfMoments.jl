@@ -154,6 +154,10 @@ function acceptance_rate(sample::AbstractVector)
     return count/(iN-i1+1)
 end
 
+# This makes sure combinations do not include the empty set
+# Behavior of combinations is changed with Combinatorics v1.1.0
+_combinations(a) = Iterators.flatten([combinations(a, k) for k = 1:length(a)])
+
 """
     datafile(name::Union{Symbol,String})
 
