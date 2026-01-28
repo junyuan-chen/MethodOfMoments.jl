@@ -10,6 +10,18 @@ end
     return x .* (- exp(θ'x) .* x')
 end
 
+@gdg function (g::g_stata_gmm_ex6_2)(θ, r)
+    @inbounds d = g.data[r]
+    x = SVector{5,Float64}((d.chronic, d.female, d.income, d.private, 1.0))
+    return (d.docvis - exp(θ'x)) .* x
+end
+
+@gdg function (dg::dg_stata_gmm_ex6_2)(θ::Vector, r)
+    @inbounds d = dg.data[r]
+    x = SVector{5,Float64}((d.chronic, d.female, d.income, d.private, 1.0))
+    return x .* (- exp(θ'x) .* x')
+end
+
 @gdg function (g::g_stata_gmm_ex8)(θ, r)
     @inbounds d = g.data[r]
     x = SVector{5,Float64}((d.private, d.chronic, d.female, d.income, 1.0))
@@ -160,6 +172,17 @@ end
     @test sprint(show, dg) == "dg_stata_gmm_ex6"
     @test sprint(show, MIME("text/plain"), g) ==
         "g_stata_gmm_ex6 (functor defined with @gdg for moment conditions)"
+
+    b = copy(coef(r))
+    se = copy(stderror(r))
+    g = g_stata_gmm_ex6_2(data)
+    dg = dg_stata_gmm_ex6_2(data)
+    params2 = (:chronic, :female, :income, :private, :cons)
+    r2 = fit!(r, g, dg, params2)
+    @test r2.est === r.est
+    @test coef(r2) ≈ b[[2:4...,1,5]]
+    @test coef(r2) === coef(r)
+    @test stderror(r2) ≈ se[[2:4...,1,5]]
 
     r1 = fit(IteratedGMM, Hybrid, vce, g, dg, params, 5, length(data), ntasks=1,
         horizontal=Val(false), initonly=true)

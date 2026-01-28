@@ -95,7 +95,7 @@ function show(io::IO, mime::MIME"text/plain", m::AbstractGMMResult)
     print(io, "  ")
     show(io, mime, m.est; twolines=true)
     println(io, "\n  ", m.vce)
-    show(io, coeftable(m))
+    show(io, mime, coeftable(m))
 end
 
 show(io::IO, est::AbstractGMMEstimator) = print(io, typeof(est).name.name)
@@ -122,6 +122,9 @@ struct NonlinearGMM{TE<:AbstractGMMEstimator, VCE<:CovarianceEstimator, SOL,
             coef, vcov, g, dg, preg, predg, est, vce, solver, params)
     end
 end
+
+_solvertype(m::NonlinearGMM{<:Any,<:Any,
+    <:NonlinearSystem{<:Any,<:Any,<:Any,<:HybridSolver}}) = Hybrid
 
 struct LinearGMM{TE<:AbstractGMMEstimator, VCE<:CovarianceEstimator,
         TF} <: AbstractGMMResult{TF}

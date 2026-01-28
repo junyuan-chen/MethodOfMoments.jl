@@ -95,6 +95,45 @@ function fit(::Type{<:CUGMM}, solvertype, vce::CovarianceEstimator,
     return m
 end
 
+"""
+    fit!(m::NonlinearGMM{<:CUGMM,VCE,<:NonlinearSystem}, g, dg, params; kwargs...)
+
+An in-place version of [`fit`](@ref) with preallocated `m`
+that allows swapping moment conditions `g` and associated derivatives `dg`
+for parameters `params`.
+The numbers of moment conditions, parameters and observations
+must all remain unchanged from `m`.
+This method is intended for repeating estimation of different specifications
+when existing arrays can be reused.
+
+!!! warning
+
+    Use of this method requires caution,
+    as the method cannot verify whether the numbers of moment conditions
+    and observations indeed remain unchanged
+    with the respecified `g` and `dg`.
+
+# Keywords
+- `preg=nothing`: a function for processing the data frame before evaluating moment conditions.
+- `predg=nothing`: a function for processing the data frame before evaluating the derivatives for moment conditions.
+- `initonly::Bool=false`: initialize the returned object without conducting the estimation.
+- `solverkwargs=NamedTuple()`: keyword arguments passed to the optimization solver as a `NamedTuple`.
+"""
+function fit!(m::NonlinearGMM{<:CUGMM,VCE,<:NonlinearSystem}, g, dg, params;
+        preg=nothing, predg=nothing, initonly::Bool=false,
+        solverkwargs=NamedTuple()) where VCE
+    params, θ0 = _parse_params(params, eltype(m.coef))
+    length(params) == nparam(m) || error("Number of parameters cannot be changed")
+    dg = _initdg(dg, g, params, nmoment(m))
+    est = m.est
+    est.Q[] = NaN
+    solver = _initsolver(_solvertype(m), est, g, dg, preg, predg, θ0; solverkwargs...)
+    coef = copyto!(m.coef, θ0)
+    m = NonlinearGMM(coef, m.vcov, g, dg, preg, predg, est, m.vce, solver, params)
+    initonly || fit!(m)
+    return m
+end
+
 function (f::VectorObjValue{<:CUGMM})(F, θ)
     est = f.est
     f.pre === nothing || f.pre(θ)

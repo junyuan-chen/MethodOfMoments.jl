@@ -7,7 +7,7 @@ using GroupedArrays: GroupedArray, GroupedVector
 using LinearAlgebra: I, mul!, ldiv!, inv!, Hermitian, Cholesky, cholesky!, cholesky, lu!, diagm
 using LogDensityProblems: LogDensityOrder
 using MacroTools
-using NonlinearSystems: NonlinearSystem, init, solve!, Hybrid, LeastSquares
+using NonlinearSystems: NonlinearSystem, LeastSquares, Hybrid, HybridSolver, init, solve!
 using Printf
 using StatsAPI: StatisticalModel
 using StatsBase: CovarianceEstimator, CoefTable, TestStat, PValue
