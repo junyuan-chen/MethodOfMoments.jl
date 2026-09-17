@@ -18,6 +18,7 @@ making it especially valuable when assumptions about the data are hard to defend
 
 - Fast multi-threaded nonlinear iterated GMM estimation
 - Specialized methods for linear GMM
+- Continuous-updating (a.k.a. continuously-updated) GMM estimation
 - Support for Bayesian quasi-likelihood approach
 
 ## Installation

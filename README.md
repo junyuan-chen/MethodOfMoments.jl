@@ -31,6 +31,7 @@ It is designed with performance in mind for estimation involving large datasets.
 
 - Fast multi-threaded nonlinear iterated GMM estimation
 - Specialized methods for linear GMM
+- Continuous-updating (a.k.a. continuously-updated) GMM estimation
 - Support for Bayesian quasi-likelihood approach
 
 ## Installation
