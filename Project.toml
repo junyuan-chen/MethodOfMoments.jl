@@ -32,7 +32,7 @@ MethodOfMomentsStaticArraysExt = "StaticArrays"
 
 [compat]
 AdvancedMH = "0.8"
-CSV = "0.10"
+CSV = "0.10, 1.2"
 Combinatorics = "1"
 DataFrames = "1"
 Distributions = "0.25"
